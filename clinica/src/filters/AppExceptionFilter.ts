@@ -1,8 +1,8 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
 import { Response } from 'express';
 import { QueryFailedError } from 'typeorm';
+import { DomainError } from '../errors/DomainError';
 import { ErrorCode } from '../errors/ErrorCode';
-import { AppError } from '../utils/AppError';
 
 type ErrorName = ErrorCode | 'ERRO_INTERNO';
 
@@ -17,6 +17,22 @@ interface ErrorInfo {
   error: ErrorName;
   message: string;
 }
+
+// Unico lugar que conhece o status HTTP de cada codigo do catalogo
+const STATUS_BY_CODE: Record<ErrorCode, number> = {
+  DADOS_INVALIDOS: HttpStatus.BAD_REQUEST,
+  NAO_AUTENTICADO: HttpStatus.UNAUTHORIZED,
+  CREDENCIAIS_INVALIDAS: HttpStatus.UNAUTHORIZED,
+  ACESSO_NEGADO: HttpStatus.FORBIDDEN,
+  RECURSO_NAO_ENCONTRADO: HttpStatus.NOT_FOUND,
+  EMAIL_JA_CADASTRADO: HttpStatus.CONFLICT,
+  CPF_JA_CADASTRADO: HttpStatus.CONFLICT,
+  CRM_JA_CADASTRADO: HttpStatus.CONFLICT,
+  HORARIO_INDISPONIVEL: HttpStatus.CONFLICT,
+  PACIENTE_INDISPONIVEL: HttpStatus.CONFLICT,
+  HORARIO_FORA_DA_ESCALA: HttpStatus.UNPROCESSABLE_ENTITY,
+  TRANSICAO_INVALIDA: HttpStatus.UNPROCESSABLE_ENTITY,
+};
 
 const PG_UNIQUE_VIOLATION = '23505';
 
@@ -83,8 +99,12 @@ export class AppExceptionFilter implements ExceptionFilter {
   }
 
   private toErrorInfo(exception: unknown): ErrorInfo {
-    if (exception instanceof AppError) {
-      return { statusCode: exception.statusCode, error: exception.code, message: exception.message };
+    if (exception instanceof DomainError) {
+      return {
+        statusCode: STATUS_BY_CODE[exception.code],
+        error: exception.code,
+        message: exception.message,
+      };
     }
 
     if (exception instanceof HttpException) {
@@ -94,7 +114,7 @@ export class AppExceptionFilter implements ExceptionFilter {
     if (exception instanceof QueryFailedError) {
       const code = uniqueViolationCode(exception);
       if (code) {
-        return { statusCode: HttpStatus.CONFLICT, error: code, message: 'Registro ja existente' };
+        return { statusCode: STATUS_BY_CODE[code], error: code, message: 'Registro ja existente' };
       }
     }
 

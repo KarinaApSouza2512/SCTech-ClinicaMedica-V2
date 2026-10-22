@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Role } from '../enums/Role';
 import { User } from '../entities/User';
 import { UserRepository } from '../repositories/UserRepository';
-import { AppError } from '../utils/AppError';
+import { DomainError } from '../errors/DomainError';
 import { hashPassword } from '../utils/hash';
 
 export interface CreateUserInput {
@@ -43,7 +43,7 @@ export class UserService {
     const existing = await this.userRepository.findByEmail(email);
 
     if (existing) {
-      throw AppError.conflict('EMAIL_JA_CADASTRADO', 'E-mail ja cadastrado');
+      throw new DomainError('EMAIL_JA_CADASTRADO', 'E-mail ja cadastrado');
     }
 
     const user = this.userRepository.create({
@@ -60,7 +60,7 @@ export class UserService {
     const user = await this.userRepository.findById(id);
 
     if (!user) {
-      throw AppError.notFound('Usuario nao encontrado');
+      throw new DomainError('RECURSO_NAO_ENCONTRADO', 'Usuario nao encontrado');
     }
 
     return user;

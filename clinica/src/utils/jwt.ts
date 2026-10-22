@@ -1,7 +1,7 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { env } from '../config/env';
 import { isRole, Role } from '../enums/Role';
-import { AppError } from './AppError';
+import { DomainError } from '../errors/DomainError';
 
 export interface AccessTokenPayload {
   sub: string;
@@ -34,11 +34,11 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
   try {
     decoded = jwt.verify(token, env.jwt.secret);
   } catch {
-    throw AppError.unauthorized('Token invalido ou expirado');
+    throw new DomainError('NAO_AUTENTICADO', 'Token invalido ou expirado');
   }
 
   if (!isAccessTokenPayload(decoded)) {
-    throw AppError.unauthorized('Token invalido ou expirado');
+    throw new DomainError('NAO_AUTENTICADO', 'Token invalido ou expirado');
   }
 
   return decoded;

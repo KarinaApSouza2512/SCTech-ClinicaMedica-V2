@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Request } from 'express';
-import { AppError } from '../utils/AppError';
+import { DomainError } from '../errors/DomainError';
 import { verifyAccessToken } from '../utils/jwt';
 
 const BEARER_PREFIX = 'Bearer ';
@@ -12,7 +12,7 @@ export class JwtAuthGuard implements CanActivate {
     const header = request.headers.authorization;
 
     if (!header || !header.startsWith(BEARER_PREFIX)) {
-      throw AppError.unauthorized('Token de autenticacao nao fornecido');
+      throw new DomainError('NAO_AUTENTICADO', 'Token de autenticacao nao fornecido');
     }
 
     const token = header.slice(BEARER_PREFIX.length).trim();

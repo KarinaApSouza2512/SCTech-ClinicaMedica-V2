@@ -1,5 +1,5 @@
 import { ValidationError, ValidationPipe } from '@nestjs/common';
-import { AppError } from '../utils/AppError';
+import { DomainError } from '../errors/DomainError';
 
 // Junta as mensagens de todos os campos, inclusive de objetos aninhados
 function collectMessages(errors: ValidationError[]): string[] {
@@ -16,7 +16,10 @@ export class DtoValidationPipe extends ValidationPipe {
       forbidNonWhitelisted: true,
       transform: true,
       exceptionFactory: (errors: ValidationError[]) =>
-        AppError.badRequest(`Dados de entrada invalidos: ${collectMessages(errors).join('; ')}`),
+        new DomainError(
+          'DADOS_INVALIDOS',
+          `Dados de entrada invalidos: ${collectMessages(errors).join('; ')}`,
+        ),
     });
   }
 }
