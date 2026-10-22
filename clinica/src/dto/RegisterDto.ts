@@ -5,16 +5,16 @@ export class RegisterDto {
   @IsString()
   @MinLength(2)
   @MaxLength(120)
-  name: string;
+  name!: string;
 
   @IsEmail()
   @MaxLength(160)
-  email: string;
+  email!: string;
 
   @IsString()
   @MinLength(8)
   @MaxLength(72)
-  password: string;
+  password!: string;
 
   @IsOptional()
   @IsEnum(Role)
