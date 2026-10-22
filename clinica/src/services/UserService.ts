@@ -43,7 +43,7 @@ export class UserService {
     const existing = await this.userRepository.findByEmail(email);
 
     if (existing) {
-      throw AppError.conflict('E-mail ja cadastrado');
+      throw AppError.conflict('EMAIL_JA_CADASTRADO', 'E-mail ja cadastrado');
     }
 
     const user = this.userRepository.create({

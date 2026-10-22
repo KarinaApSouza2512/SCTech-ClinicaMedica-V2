@@ -36,7 +36,7 @@ export class AuthService {
 
     // Resposta generica: nao revela se o e-mail existe ou se a senha esta incorreta.
     if (!user || !(await comparePassword(input.password, user.password))) {
-      throw AppError.unauthorized('Credenciais invalidas');
+      throw AppError.unauthorized('Credenciais invalidas', 'CREDENCIAIS_INVALIDAS');
     }
 
     const token = signAccessToken({ sub: user.id, email: user.email, role: user.role });

@@ -1,16 +1,12 @@
 import { ValidationError, ValidationPipe } from '@nestjs/common';
 import { AppError } from '../utils/AppError';
 
-interface FieldError {
-  field: string;
-  messages: string[];
-}
-
-function toFieldErrors(errors: ValidationError[]): FieldError[] {
-  return errors.map((error) => ({
-    field: error.property,
-    messages: Object.values(error.constraints ?? {}),
-  }));
+// Junta as mensagens de todos os campos, inclusive de objetos aninhados
+function collectMessages(errors: ValidationError[]): string[] {
+  return errors.flatMap((error) => [
+    ...Object.values(error.constraints ?? {}),
+    ...collectMessages(error.children ?? []),
+  ]);
 }
 
 export class DtoValidationPipe extends ValidationPipe {
@@ -20,7 +16,7 @@ export class DtoValidationPipe extends ValidationPipe {
       forbidNonWhitelisted: true,
       transform: true,
       exceptionFactory: (errors: ValidationError[]) =>
-        AppError.badRequest('Dados de entrada invalidos', toFieldErrors(errors)),
+        AppError.badRequest(`Dados de entrada invalidos: ${collectMessages(errors).join('; ')}`),
     });
   }
 }
