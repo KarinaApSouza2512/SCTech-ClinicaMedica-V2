@@ -29,5 +29,6 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Testes
-        run: npm test
+      # Reprova o job se a cobertura dos services ficar abaixo de 80% (coverageThreshold do Jest)
+      - name: Testes com cobertura
+        run: npm run test:cov
