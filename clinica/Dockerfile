@@ -28,4 +28,4 @@ COPY --from=builder /app/package-lock.json ./package-lock.json
 RUN npm ci --only=production
 
 # O comando que o container vai executar assim que ele for orquestrado
-CMD ["node", "dist/server.js"]
+CMD ["node", "dist/main.js"]

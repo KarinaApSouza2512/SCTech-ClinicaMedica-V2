@@ -1,10 +1,9 @@
+import { Injectable } from '@nestjs/common';
 import { Role } from '../enums/Role';
 import { User } from '../entities/User';
 import { UserRepository } from '../repositories/UserRepository';
 import { AppError } from '../utils/AppError';
 import { hashPassword } from '../utils/hash';
-
-type UserRepo = typeof UserRepository;
 
 export interface CreateUserInput {
   name: string;
@@ -25,8 +24,9 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+@Injectable()
 export class UserService {
-  constructor(private readonly userRepository: UserRepo) {}
+  constructor(private readonly userRepository: UserRepository) {}
 
   toPublic(user: User): PublicUser {
     return {

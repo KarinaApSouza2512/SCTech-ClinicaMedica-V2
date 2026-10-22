@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { Role } from '../enums/Role';
 import { AppError } from '../utils/AppError';
 import { comparePassword } from '../utils/hash';
@@ -21,6 +22,7 @@ export interface AuthResult {
   user: PublicUser;
 }
 
+@Injectable()
 export class AuthService {
   constructor(private readonly userService: UserService) {}
 
