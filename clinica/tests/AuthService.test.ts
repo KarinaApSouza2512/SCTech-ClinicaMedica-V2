@@ -5,8 +5,15 @@ import { Role } from '../src/enums/Role';
 import { comparePassword } from '../src/utils/hash';
 import { signAccessToken } from '../src/utils/jwt';
 
-jest.mock('../src/utils/hash');
-jest.mock('../src/utils/jwt');
+// Factories evitam carregar os modulos reais, que leem o config/env
+jest.mock('../src/utils/hash', () => ({
+  hashPassword: jest.fn(),
+  comparePassword: jest.fn(),
+}));
+jest.mock('../src/utils/jwt', () => ({
+  signAccessToken: jest.fn(),
+  verifyAccessToken: jest.fn(),
+}));
 
 const comparePasswordMock = comparePassword as jest.Mock;
 const signAccessTokenMock = signAccessToken as jest.Mock;

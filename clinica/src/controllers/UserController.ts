@@ -1,16 +1,16 @@
-import { Request, Response } from 'express';
-import { UserService } from '../services/UserService';
-import { AppError } from '../utils/AppError';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { CurrentUser } from '../decorators/CurrentUser';
+import { JwtAuthGuard } from '../guards/JwtAuthGuard';
+import { PublicUser, UserService } from '../services/UserService';
 
+@Controller('users')
+@UseGuards(JwtAuthGuard)
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  me = async (request: Request, response: Response): Promise<void> => {
-    if (!request.user) {
-      throw AppError.unauthorized('Autenticacao requerida');
-    }
-
-    const user = await this.userService.findById(request.user.id);
-    response.status(200).json(this.userService.toPublic(user));
-  };
+  @Get('me')
+  async me(@CurrentUser() authUser: Express.AuthenticatedUser): Promise<PublicUser> {
+    const user = await this.userService.findById(authUser.id);
+    return this.userService.toPublic(user);
+  }
 }

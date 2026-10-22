@@ -1,11 +1,11 @@
 import 'reflect-metadata';
 import path from 'node:path';
-import { DataSource } from 'typeorm';
+import { DataSource, DataSourceOptions } from 'typeorm';
 import { env } from '../config/env';
+import { User } from '../entities/User';
 
-const rootDir = path.resolve(__dirname, '..');
-
-export const AppDataSource = new DataSource({
+// Mesmas opcoes para o Nest (TypeOrmModule) e para a CLI de migrations
+export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
   host: env.database.host,
   port: env.database.port,
@@ -14,6 +14,8 @@ export const AppDataSource = new DataSource({
   database: env.database.name,
   synchronize: false,
   logging: env.nodeEnv === 'development',
-  entities: [path.join(rootDir, 'entities', '*.{ts,js}')],
-  migrations: [path.join(rootDir, 'database', 'migrations', '*.{ts,js}')],
-});
+  entities: [User],
+  migrations: [path.join(__dirname, 'migrations', '*.{ts,js}')],
+};
+
+export const AppDataSource = new DataSource(dataSourceOptions);
