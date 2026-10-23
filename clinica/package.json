@@ -11,6 +11,7 @@
     "migration:generate": "npm run typeorm -- migration:generate src/database/migrations/Migration",
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
+    "seed": "ts-node src/database/seeds/runSeed.ts",
     "test": "jest",
     "test:cov": "jest --coverage",
     "test:watch": "jest --watch",
