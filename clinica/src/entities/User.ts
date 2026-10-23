@@ -15,8 +15,8 @@ export class User {
   @Column({ type: 'varchar', select: false })
   password!: string;
 
-  @Column({ type: 'enum', enum: Role, default: Role.ATTENDANT })
-  role!: Role;
+  @Column({ type: 'text', array: true })
+  roles!: Role[];
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;

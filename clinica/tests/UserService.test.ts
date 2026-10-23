@@ -18,7 +18,7 @@ function buildUser(overrides: Partial<User> = {}): User {
     name: 'Ana',
     email: 'ana@x.com',
     password: 'hashed-password',
-    role: Role.ATTENDANT,
+    roles: [Role.SECRETARY],
     createdAt: new Date('2024-01-01'),
     ...overrides,
   } as User;
@@ -52,7 +52,7 @@ describe('UserService', () => {
       expect(userRepository.save).not.toHaveBeenCalled();
     });
 
-    it('normaliza o e-mail, guarda a senha com hash e usa ATTENDANT como perfil padrao', async () => {
+    it('normaliza o e-mail, guarda a senha com hash e usa secretary como perfil padrao', async () => {
       const entity = buildUser();
       userRepository.findByEmail.mockResolvedValue(null);
       hashPasswordMock.mockResolvedValue('hashed-password');
@@ -71,26 +71,26 @@ describe('UserService', () => {
         name: 'Ana',
         email: 'ana@x.com',
         password: 'hashed-password',
-        role: Role.ATTENDANT,
+        roles: [Role.SECRETARY],
       });
       expect(userRepository.save).toHaveBeenCalledWith(entity);
       expect(result).toBe(entity);
     });
 
-    it('mantem o perfil informado', async () => {
+    it('mantem os perfis informados sem repeticao', async () => {
       userRepository.findByEmail.mockResolvedValue(null);
       hashPasswordMock.mockResolvedValue('hashed-password');
-      userRepository.create.mockReturnValue(buildUser({ role: Role.DOCTOR }));
+      userRepository.create.mockReturnValue(buildUser({ roles: [Role.DOCTOR, Role.ADMIN] }));
 
       await userService.create({
         name: 'Bruno',
         email: 'bruno@x.com',
         password: '12345678',
-        role: Role.DOCTOR,
+        roles: [Role.DOCTOR, Role.ADMIN, Role.DOCTOR],
       });
 
       expect(userRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ role: Role.DOCTOR }),
+        expect.objectContaining({ roles: [Role.DOCTOR, Role.ADMIN] }),
       );
     });
   });
@@ -135,7 +135,7 @@ describe('UserService', () => {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        roles: user.roles,
         createdAt: user.createdAt,
       });
       expect(result).not.toHaveProperty('password');

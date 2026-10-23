@@ -19,7 +19,7 @@ export class AdminController {
   ping(@CurrentUser() user: Express.AuthenticatedUser): PingResponse {
     return {
       message: 'pong',
-      requestedBy: { id: user.id, email: user.email, role: user.role },
+      requestedBy: { id: user.id, email: user.email, roles: user.roles },
       timestamp: new Date().toISOString(),
     };
   }

@@ -9,7 +9,7 @@ export interface RegisterInput {
   name: string;
   email: string;
   password: string;
-  role?: Role;
+  roles?: Role[];
 }
 
 export interface LoginInput {
@@ -39,7 +39,7 @@ export class AuthService {
       throw new DomainError('CREDENCIAIS_INVALIDAS', 'Credenciais invalidas');
     }
 
-    const token = signAccessToken({ sub: user.id, email: user.email, role: user.role });
+    const token = signAccessToken({ sub: user.id, email: user.email, roles: user.roles });
     return { token, user: this.userService.toPublic(user) };
   }
 }

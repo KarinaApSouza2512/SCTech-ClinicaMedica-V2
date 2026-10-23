@@ -9,19 +9,24 @@ export interface CreateUserInput {
   name: string;
   email: string;
   password: string;
-  role?: Role;
+  roles?: Role[];
 }
 
 export interface PublicUser {
   id: string;
   name: string;
   email: string;
-  role: Role;
+  roles: Role[];
   createdAt: Date;
 }
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+// Perfil repetido na lista nao muda nada; guarda cada um uma vez
+function uniqueRoles(roles: Role[]): Role[] {
+  return [...new Set(roles)];
 }
 
 @Injectable()
@@ -33,7 +38,7 @@ export class UserService {
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role,
+      roles: user.roles,
       createdAt: user.createdAt,
     };
   }
@@ -50,7 +55,7 @@ export class UserService {
       name: input.name.trim(),
       email,
       password: await hashPassword(input.password),
-      role: input.role ?? Role.ATTENDANT,
+      roles: uniqueRoles(input.roles ?? [Role.SECRETARY]),
     });
 
     return this.userRepository.save(user);

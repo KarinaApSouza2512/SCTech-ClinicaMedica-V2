@@ -24,7 +24,7 @@ function buildUser(overrides: Partial<User> = {}): User {
     name: 'Ana',
     email: 'ana@x.com',
     password: 'hashed-password',
-    role: Role.ATTENDANT,
+    roles: [Role.SECRETARY],
     createdAt: new Date('2024-01-01'),
     ...overrides,
   } as User;
@@ -49,7 +49,7 @@ describe('AuthService', () => {
     it('cria o usuario e retorna a versao publica dele', async () => {
       const input = { name: 'Ana', email: 'ana@x.com', password: '123456' };
       const createdUser = buildUser();
-      const publicUser = { id: '1', name: 'Ana', email: 'ana@x.com', role: Role.ATTENDANT, createdAt: createdUser.createdAt };
+      const publicUser = { id: '1', name: 'Ana', email: 'ana@x.com', roles: [Role.SECRETARY], createdAt: createdUser.createdAt };
 
       userService.create.mockResolvedValue(createdUser);
       userService.toPublic.mockReturnValue(publicUser);
@@ -65,7 +65,7 @@ describe('AuthService', () => {
   describe('login', () => {
     it('retorna token e usuario publico quando as credenciais sao validas', async () => {
       const user = buildUser();
-      const publicUser = { id: '1', name: 'Ana', email: 'ana@x.com', role: Role.ATTENDANT, createdAt: user.createdAt };
+      const publicUser = { id: '1', name: 'Ana', email: 'ana@x.com', roles: [Role.SECRETARY], createdAt: user.createdAt };
 
       userService.findByEmailWithPassword.mockResolvedValue(user);
       comparePasswordMock.mockResolvedValue(true);
@@ -75,7 +75,7 @@ describe('AuthService', () => {
       const result = await authService.login({ email: 'ana@x.com', password: '123456' });
 
       expect(comparePasswordMock).toHaveBeenCalledWith('123456', user.password);
-      expect(signAccessTokenMock).toHaveBeenCalledWith({ sub: user.id, email: user.email, role: user.role });
+      expect(signAccessTokenMock).toHaveBeenCalledWith({ sub: user.id, email: user.email, roles: user.roles });
       expect(result).toEqual({ token: 'fake-token', user: publicUser });
     });
 

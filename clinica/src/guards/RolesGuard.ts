@@ -26,7 +26,8 @@ export class RolesGuard implements CanActivate {
       throw new DomainError('NAO_AUTENTICADO', 'Autenticacao requerida');
     }
 
-    if (!allowedRoles.includes(request.user.role)) {
+    // Basta ter um dos perfis permitidos
+    if (!allowedRoles.some((role) => request.user?.roles.includes(role))) {
       throw new DomainError('ACESSO_NEGADO', 'Voce nao tem permissao para acessar este recurso');
     }
 
