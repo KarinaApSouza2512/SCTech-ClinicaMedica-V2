@@ -13,7 +13,7 @@ export interface CreateUserInput {
 }
 
 export interface PublicUser {
-  id: string;
+  id: number;
   name: string;
   email: string;
   roles: Role[];
@@ -61,7 +61,7 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
-  async findById(id: string): Promise<User> {
+  async findById(id: number): Promise<User> {
     const user = await this.userRepository.findById(id);
 
     if (!user) {

@@ -14,7 +14,7 @@ const hashPasswordMock = hashPassword as jest.Mock;
 
 function buildUser(overrides: Partial<User> = {}): User {
   return {
-    id: '1',
+    id: 1,
     name: 'Ana',
     email: 'ana@x.com',
     password: 'hashed-password',
@@ -99,7 +99,7 @@ describe('UserService', () => {
     it('lanca nao encontrado quando o usuario nao existe', async () => {
       userRepository.findById.mockResolvedValue(null);
 
-      await expect(userService.findById('99')).rejects.toMatchObject({
+      await expect(userService.findById(99)).rejects.toMatchObject({
         code: 'RECURSO_NAO_ENCONTRADO',
       });
     });
@@ -108,8 +108,8 @@ describe('UserService', () => {
       const user = buildUser();
       userRepository.findById.mockResolvedValue(user);
 
-      await expect(userService.findById('1')).resolves.toBe(user);
-      expect(userRepository.findById).toHaveBeenCalledWith('1');
+      await expect(userService.findById(1)).resolves.toBe(user);
+      expect(userRepository.findById).toHaveBeenCalledWith(1);
     });
   });
 

@@ -4,7 +4,7 @@ import { isRoleList, Role } from '../enums/Role';
 import { DomainError } from '../errors/DomainError';
 
 export interface AccessTokenPayload {
-  sub: string;
+  sub: number;
   email: string;
   roles: Role[];
 }
@@ -16,7 +16,7 @@ function isAccessTokenPayload(value: unknown): value is AccessTokenPayload {
 
   const candidate = value as Record<string, unknown>;
   return (
-    typeof candidate.sub === 'string' &&
+    Number.isInteger(candidate.sub) &&
     typeof candidate.email === 'string' &&
     isRoleList(candidate.roles)
   );

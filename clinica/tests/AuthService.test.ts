@@ -20,7 +20,7 @@ const signAccessTokenMock = signAccessToken as jest.Mock;
 
 function buildUser(overrides: Partial<User> = {}): User {
   return {
-    id: '1',
+    id: 1,
     name: 'Ana',
     email: 'ana@x.com',
     password: 'hashed-password',
@@ -49,7 +49,7 @@ describe('AuthService', () => {
     it('cria o usuario e retorna a versao publica dele', async () => {
       const input = { name: 'Ana', email: 'ana@x.com', password: '123456' };
       const createdUser = buildUser();
-      const publicUser = { id: '1', name: 'Ana', email: 'ana@x.com', roles: [Role.SECRETARY], createdAt: createdUser.createdAt };
+      const publicUser = { id: 1, name: 'Ana', email: 'ana@x.com', roles: [Role.SECRETARY], createdAt: createdUser.createdAt };
 
       userService.create.mockResolvedValue(createdUser);
       userService.toPublic.mockReturnValue(publicUser);
@@ -65,7 +65,7 @@ describe('AuthService', () => {
   describe('login', () => {
     it('retorna token e usuario publico quando as credenciais sao validas', async () => {
       const user = buildUser();
-      const publicUser = { id: '1', name: 'Ana', email: 'ana@x.com', roles: [Role.SECRETARY], createdAt: user.createdAt };
+      const publicUser = { id: 1, name: 'Ana', email: 'ana@x.com', roles: [Role.SECRETARY], createdAt: user.createdAt };
 
       userService.findByEmailWithPassword.mockResolvedValue(user);
       comparePasswordMock.mockResolvedValue(true);
