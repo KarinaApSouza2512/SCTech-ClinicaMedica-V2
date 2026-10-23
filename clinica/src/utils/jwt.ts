@@ -3,9 +3,9 @@ import { env } from '../config/env';
 import { isRoleList, Role } from '../enums/Role';
 import { DomainError } from '../errors/DomainError';
 
+// O token carrega so o id do usuario e os perfis
 export interface AccessTokenPayload {
   sub: number;
-  email: string;
   roles: Role[];
 }
 
@@ -15,11 +15,7 @@ function isAccessTokenPayload(value: unknown): value is AccessTokenPayload {
   }
 
   const candidate = value as Record<string, unknown>;
-  return (
-    Number.isInteger(candidate.sub) &&
-    typeof candidate.email === 'string' &&
-    isRoleList(candidate.roles)
-  );
+  return Number.isInteger(candidate.sub) && isRoleList(candidate.roles);
 }
 
 export function signAccessToken(payload: AccessTokenPayload): string {

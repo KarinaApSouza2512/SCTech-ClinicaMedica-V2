@@ -63,20 +63,18 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('retorna token e usuario publico quando as credenciais sao validas', async () => {
+    it('retorna o accessToken quando as credenciais sao validas', async () => {
       const user = buildUser();
-      const publicUser = { id: 1, name: 'Ana', email: 'ana@x.com', roles: [Role.SECRETARY], createdAt: user.createdAt };
 
       userService.findByEmailWithPassword.mockResolvedValue(user);
       comparePasswordMock.mockResolvedValue(true);
       signAccessTokenMock.mockReturnValue('fake-token');
-      userService.toPublic.mockReturnValue(publicUser);
 
       const result = await authService.login({ email: 'ana@x.com', password: '123456' });
 
       expect(comparePasswordMock).toHaveBeenCalledWith('123456', user.password);
-      expect(signAccessTokenMock).toHaveBeenCalledWith({ sub: user.id, email: user.email, roles: user.roles });
-      expect(result).toEqual({ token: 'fake-token', user: publicUser });
+      expect(signAccessTokenMock).toHaveBeenCalledWith({ sub: user.id, roles: user.roles });
+      expect(result).toEqual({ accessToken: 'fake-token' });
     });
 
     it('lanca erro generico quando o usuario nao existe', async () => {

@@ -17,9 +17,8 @@ export interface LoginInput {
   password: string;
 }
 
-export interface AuthResult {
-  token: string;
-  user: PublicUser;
+export interface LoginResult {
+  accessToken: string;
 }
 
 @Injectable()
@@ -31,7 +30,7 @@ export class AuthService {
     return this.userService.toPublic(user);
   }
 
-  async login(input: LoginInput): Promise<AuthResult> {
+  async login(input: LoginInput): Promise<LoginResult> {
     const user = await this.userService.findByEmailWithPassword(input.email);
 
     // Resposta generica: nao revela se o e-mail existe ou se a senha esta incorreta.
@@ -39,7 +38,7 @@ export class AuthService {
       throw new DomainError('CREDENCIAIS_INVALIDAS', 'Credenciais invalidas');
     }
 
-    const token = signAccessToken({ sub: user.id, email: user.email, roles: user.roles });
-    return { token, user: this.userService.toPublic(user) };
+    const accessToken = signAccessToken({ sub: user.id, roles: user.roles });
+    return { accessToken };
   }
 }

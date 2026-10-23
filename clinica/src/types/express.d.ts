@@ -4,7 +4,6 @@ declare global {
   namespace Express {
     interface AuthenticatedUser {
       id: number;
-      email: string;
       roles: Role[];
     }
 
