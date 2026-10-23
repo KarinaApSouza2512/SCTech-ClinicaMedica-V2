@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Role } from '../enums/Role';
 import { User } from '../entities/User';
-import { UserRepository } from '../repositories/UserRepository';
 import { DomainError } from '../errors/DomainError';
+import type { IUserRepository } from '../repositories/ports/IUserRepository';
+import { USER_REPOSITORY } from '../repositories/ports/IUserRepository';
 import { hashPassword } from '../utils/hash';
 
 export interface CreateUserInput {
@@ -31,7 +32,7 @@ function uniqueRoles(roles: Role[]): Role[] {
 
 @Injectable()
 export class UserService {
-  constructor(private readonly userRepository: UserRepository) {}
+  constructor(@Inject(USER_REPOSITORY) private readonly userRepository: IUserRepository) {}
 
   toPublic(user: User): PublicUser {
     return {
@@ -51,14 +52,12 @@ export class UserService {
       throw new DomainError('EMAIL_JA_CADASTRADO', 'E-mail ja cadastrado');
     }
 
-    const user = this.userRepository.create({
+    return this.userRepository.create({
       name: input.name.trim(),
       email,
       password: await hashPassword(input.password),
       roles: uniqueRoles(input.roles ?? [Role.SECRETARY]),
     });
-
-    return this.userRepository.save(user);
   }
 
   async findById(id: number): Promise<User> {

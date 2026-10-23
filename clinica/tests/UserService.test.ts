@@ -1,6 +1,6 @@
 import { User } from '../src/entities/User';
 import { Role } from '../src/enums/Role';
-import { UserRepository } from '../src/repositories/UserRepository';
+import { IUserRepository } from '../src/repositories/ports/IUserRepository';
 import { UserService } from '../src/services/UserService';
 import { hashPassword } from '../src/utils/hash';
 
@@ -25,17 +25,16 @@ function buildUser(overrides: Partial<User> = {}): User {
 }
 
 describe('UserService', () => {
-  let userRepository: jest.Mocked<UserRepository>;
+  let userRepository: jest.Mocked<IUserRepository>;
   let userService: UserService;
 
   beforeEach(() => {
     userRepository = {
       create: jest.fn(),
-      save: jest.fn(),
       findByEmail: jest.fn(),
       findByEmailWithPassword: jest.fn(),
       findById: jest.fn(),
-    } as unknown as jest.Mocked<UserRepository>;
+    };
 
     userService = new UserService(userRepository);
   });
@@ -49,15 +48,14 @@ describe('UserService', () => {
       ).rejects.toMatchObject({ code: 'EMAIL_JA_CADASTRADO' });
 
       expect(hashPasswordMock).not.toHaveBeenCalled();
-      expect(userRepository.save).not.toHaveBeenCalled();
+      expect(userRepository.create).not.toHaveBeenCalled();
     });
 
     it('normaliza o e-mail, guarda a senha com hash e usa secretary como perfil padrao', async () => {
       const entity = buildUser();
       userRepository.findByEmail.mockResolvedValue(null);
       hashPasswordMock.mockResolvedValue('hashed-password');
-      userRepository.create.mockReturnValue(entity);
-      userRepository.save.mockResolvedValue(entity);
+      userRepository.create.mockResolvedValue(entity);
 
       const result = await userService.create({
         name: '  Ana  ',
@@ -73,14 +71,13 @@ describe('UserService', () => {
         password: 'hashed-password',
         roles: [Role.SECRETARY],
       });
-      expect(userRepository.save).toHaveBeenCalledWith(entity);
       expect(result).toBe(entity);
     });
 
     it('mantem os perfis informados sem repeticao', async () => {
       userRepository.findByEmail.mockResolvedValue(null);
       hashPasswordMock.mockResolvedValue('hashed-password');
-      userRepository.create.mockReturnValue(buildUser({ roles: [Role.DOCTOR, Role.ADMIN] }));
+      userRepository.create.mockResolvedValue(buildUser({ roles: [Role.DOCTOR, Role.ADMIN] }));
 
       await userService.create({
         name: 'Bruno',
