@@ -3,14 +3,13 @@ import {
   IsArray,
   IsEmail,
   IsEnum,
-  IsOptional,
   IsString,
   MaxLength,
   MinLength,
 } from 'class-validator';
 import { Role } from '../enums/Role';
 
-export class RegisterDto {
+export class CreateUserDto {
   @IsString()
   @MinLength(2)
   @MaxLength(120)
@@ -25,9 +24,9 @@ export class RegisterDto {
   @MaxLength(72)
   password!: string;
 
-  @IsOptional()
+  // Perfil fora da lista gera 400 DADOS_INVALIDOS
   @IsArray()
   @ArrayNotEmpty()
   @IsEnum(Role, { each: true })
-  roles?: Role[];
+  roles!: Role[];
 }

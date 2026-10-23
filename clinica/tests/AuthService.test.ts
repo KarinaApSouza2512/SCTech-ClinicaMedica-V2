@@ -36,30 +36,10 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     userService = {
-      create: jest.fn(),
-      toPublic: jest.fn(),
-      findById: jest.fn(),
       findByEmailWithPassword: jest.fn(),
     } as unknown as jest.Mocked<UserService>;
 
     authService = new AuthService(userService);
-  });
-
-  describe('register', () => {
-    it('cria o usuario e retorna a versao publica dele', async () => {
-      const input = { name: 'Ana', email: 'ana@x.com', password: '123456' };
-      const createdUser = buildUser();
-      const publicUser = { id: 1, name: 'Ana', email: 'ana@x.com', roles: [Role.SECRETARY], createdAt: createdUser.createdAt };
-
-      userService.create.mockResolvedValue(createdUser);
-      userService.toPublic.mockReturnValue(publicUser);
-
-      const result = await authService.register(input);
-
-      expect(userService.create).toHaveBeenCalledWith(input);
-      expect(userService.toPublic).toHaveBeenCalledWith(createdUser);
-      expect(result).toEqual(publicUser);
-    });
   });
 
   describe('login', () => {

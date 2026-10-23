@@ -44,14 +44,19 @@ describe('UserService', () => {
       userRepository.findByEmail.mockResolvedValue(buildUser());
 
       await expect(
-        userService.create({ name: 'Ana', email: 'ana@x.com', password: '12345678' }),
+        userService.create({
+          name: 'Ana',
+          email: 'ana@x.com',
+          password: '12345678',
+          roles: [Role.SECRETARY],
+        }),
       ).rejects.toMatchObject({ code: 'EMAIL_JA_CADASTRADO' });
 
       expect(hashPasswordMock).not.toHaveBeenCalled();
       expect(userRepository.create).not.toHaveBeenCalled();
     });
 
-    it('normaliza o e-mail, guarda a senha com hash e usa secretary como perfil padrao', async () => {
+    it('normaliza o e-mail, guarda a senha com hash e grava os perfis informados', async () => {
       const entity = buildUser();
       userRepository.findByEmail.mockResolvedValue(null);
       hashPasswordMock.mockResolvedValue('hashed-password');
@@ -61,6 +66,7 @@ describe('UserService', () => {
         name: '  Ana  ',
         email: '  Ana@X.COM ',
         password: '12345678',
+        roles: [Role.SECRETARY],
       });
 
       expect(userRepository.findByEmail).toHaveBeenCalledWith('ana@x.com');
@@ -133,7 +139,6 @@ describe('UserService', () => {
         name: user.name,
         email: user.email,
         roles: user.roles,
-        createdAt: user.createdAt,
       });
       expect(result).not.toHaveProperty('password');
     });

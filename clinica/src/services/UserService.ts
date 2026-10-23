@@ -10,7 +10,7 @@ export interface CreateUserInput {
   name: string;
   email: string;
   password: string;
-  roles?: Role[];
+  roles: Role[];
 }
 
 export interface PublicUser {
@@ -18,7 +18,6 @@ export interface PublicUser {
   name: string;
   email: string;
   roles: Role[];
-  createdAt: Date;
 }
 
 function normalizeEmail(email: string): string {
@@ -40,7 +39,6 @@ export class UserService {
       name: user.name,
       email: user.email,
       roles: user.roles,
-      createdAt: user.createdAt,
     };
   }
 
@@ -56,7 +54,7 @@ export class UserService {
       name: input.name.trim(),
       email,
       password: await hashPassword(input.password),
-      roles: uniqueRoles(input.roles ?? [Role.SECRETARY]),
+      roles: uniqueRoles(input.roles),
     });
   }
 

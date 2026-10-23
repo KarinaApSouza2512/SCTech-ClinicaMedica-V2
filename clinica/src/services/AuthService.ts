@@ -1,16 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { Role } from '../enums/Role';
 import { DomainError } from '../errors/DomainError';
 import { comparePassword } from '../utils/hash';
 import { signAccessToken } from '../utils/jwt';
-import { PublicUser, UserService } from './UserService';
-
-export interface RegisterInput {
-  name: string;
-  email: string;
-  password: string;
-  roles?: Role[];
-}
+import { UserService } from './UserService';
 
 export interface LoginInput {
   email: string;
@@ -24,11 +16,6 @@ export interface LoginResult {
 @Injectable()
 export class AuthService {
   constructor(private readonly userService: UserService) {}
-
-  async register(input: RegisterInput): Promise<PublicUser> {
-    const user = await this.userService.create(input);
-    return this.userService.toPublic(user);
-  }
 
   async login(input: LoginInput): Promise<LoginResult> {
     const user = await this.userService.findByEmailWithPassword(input.email);
