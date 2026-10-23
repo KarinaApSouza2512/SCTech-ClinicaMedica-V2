@@ -4,20 +4,20 @@ import { Role } from '../enums/Role';
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ type: 'varchar', length: 120 })
-  name: string;
+  name!: string;
 
   @Column({ type: 'varchar', length: 160, unique: true })
-  email: string;
+  email!: string;
 
   @Column({ type: 'varchar', select: false })
-  password: string;
+  password!: string;
 
   @Column({ type: 'enum', enum: Role, default: Role.ATTENDANT })
-  role: Role;
+  role!: Role;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
-  createdAt: Date;
+  createdAt!: Date;
 }

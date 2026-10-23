@@ -1,0 +1,17 @@
+// Catalogo de codigos de erro do contrato (secao 4.9.1)
+export const ERROR_CODES = [
+  'DADOS_INVALIDOS',
+  'NAO_AUTENTICADO',
+  'CREDENCIAIS_INVALIDAS',
+  'ACESSO_NEGADO',
+  'RECURSO_NAO_ENCONTRADO',
+  'EMAIL_JA_CADASTRADO',
+  'CPF_JA_CADASTRADO',
+  'CRM_JA_CADASTRADO',
+  'HORARIO_INDISPONIVEL',
+  'PACIENTE_INDISPONIVEL',
+  'HORARIO_FORA_DA_ESCALA',
+  'TRANSICAO_INVALIDA',
+] as const;
+
+export type ErrorCode = (typeof ERROR_CODES)[number];

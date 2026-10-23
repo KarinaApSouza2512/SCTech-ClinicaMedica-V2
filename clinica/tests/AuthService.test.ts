@@ -83,7 +83,7 @@ describe('AuthService', () => {
       userService.findByEmailWithPassword.mockResolvedValue(null);
 
       await expect(authService.login({ email: 'inexistente@x.com', password: '123456' }))
-        .rejects.toMatchObject({ statusCode: 401, message: 'Credenciais invalidas' });
+        .rejects.toMatchObject({ code: 'CREDENCIAIS_INVALIDAS' });
 
       expect(comparePasswordMock).not.toHaveBeenCalled();
     });
@@ -94,7 +94,7 @@ describe('AuthService', () => {
       comparePasswordMock.mockResolvedValue(false);
 
       await expect(authService.login({ email: user.email, password: 'senha-errada' }))
-        .rejects.toMatchObject({ statusCode: 401, message: 'Credenciais invalidas' });
+        .rejects.toMatchObject({ code: 'CREDENCIAIS_INVALIDAS' });
 
       expect(signAccessTokenMock).not.toHaveBeenCalled();
     });

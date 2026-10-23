@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Role } from '../enums/Role';
-import { AppError } from '../utils/AppError';
+import { DomainError } from '../errors/DomainError';
 import { comparePassword } from '../utils/hash';
 import { signAccessToken } from '../utils/jwt';
 import { PublicUser, UserService } from './UserService';
@@ -36,7 +36,7 @@ export class AuthService {
 
     // Resposta generica: nao revela se o e-mail existe ou se a senha esta incorreta.
     if (!user || !(await comparePassword(input.password, user.password))) {
-      throw AppError.unauthorized('Credenciais invalidas');
+      throw new DomainError('CREDENCIAIS_INVALIDAS', 'Credenciais invalidas');
     }
 
     const token = signAccessToken({ sub: user.id, email: user.email, role: user.role });

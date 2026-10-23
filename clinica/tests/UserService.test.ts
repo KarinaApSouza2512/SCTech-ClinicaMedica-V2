@@ -46,7 +46,7 @@ describe('UserService', () => {
 
       await expect(
         userService.create({ name: 'Ana', email: 'ana@x.com', password: '12345678' }),
-      ).rejects.toMatchObject({ statusCode: 409, message: 'E-mail ja cadastrado' });
+      ).rejects.toMatchObject({ code: 'EMAIL_JA_CADASTRADO' });
 
       expect(hashPasswordMock).not.toHaveBeenCalled();
       expect(userRepository.save).not.toHaveBeenCalled();
@@ -100,8 +100,7 @@ describe('UserService', () => {
       userRepository.findById.mockResolvedValue(null);
 
       await expect(userService.findById('99')).rejects.toMatchObject({
-        statusCode: 404,
-        message: 'Usuario nao encontrado',
+        code: 'RECURSO_NAO_ENCONTRADO',
       });
     });
 

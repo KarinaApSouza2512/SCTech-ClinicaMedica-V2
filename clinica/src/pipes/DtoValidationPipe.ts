@@ -1,26 +1,29 @@
 import { ValidationError, ValidationPipe } from '@nestjs/common';
-import { AppError } from '../utils/AppError';
+import { DomainError } from '../errors/DomainError';
 
-interface FieldError {
-  field: string;
-  messages: string[];
+// Junta as mensagens de todos os campos, inclusive de objetos aninhados
+function collectMessages(errors: ValidationError[]): string[] {
+  return errors.flatMap((error) => [
+    ...Object.values(error.constraints ?? {}),
+    ...collectMessages(error.children ?? []),
+  ]);
 }
 
-function toFieldErrors(errors: ValidationError[]): FieldError[] {
-  return errors.map((error) => ({
-    field: error.property,
-    messages: Object.values(error.constraints ?? {}),
-  }));
-}
-
+// Valida @Body(), @Param() e @Query() pelo DTO tipado no parametro do controller.
+// O valor validado chega como argumento do metodo, entao request.query (somente
+// leitura no Express 5) nunca e reescrito.
 export class DtoValidationPipe extends ValidationPipe {
   constructor() {
     super({
+      // Remove campos que nao estao no DTO; o contrato manda ignorar extras
       whitelist: true,
-      forbidNonWhitelisted: true,
+      // Converte para a classe do DTO, aplicando @Type e valores padrao
       transform: true,
       exceptionFactory: (errors: ValidationError[]) =>
-        AppError.badRequest('Dados de entrada invalidos', toFieldErrors(errors)),
+        new DomainError(
+          'DADOS_INVALIDOS',
+          `Dados de entrada invalidos: ${collectMessages(errors).join('; ')}`,
+        ),
     });
   }
 }

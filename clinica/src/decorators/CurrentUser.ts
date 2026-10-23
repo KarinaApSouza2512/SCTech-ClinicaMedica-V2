@@ -1,6 +1,6 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { Request } from 'express';
-import { AppError } from '../utils/AppError';
+import { DomainError } from '../errors/DomainError';
 
 // Le o usuario que o JwtAuthGuard colocou na requisicao
 export const CurrentUser = createParamDecorator(
@@ -8,7 +8,7 @@ export const CurrentUser = createParamDecorator(
     const request = context.switchToHttp().getRequest<Request>();
 
     if (!request.user) {
-      throw AppError.unauthorized('Autenticacao requerida');
+      throw new DomainError('NAO_AUTENTICADO', 'Autenticacao requerida');
     }
 
     return request.user;
