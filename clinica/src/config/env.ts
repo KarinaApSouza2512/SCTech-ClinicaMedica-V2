@@ -33,6 +33,16 @@ function readString(key: string, fallback: string): string {
   return value !== undefined && value.trim() !== '' ? value : fallback;
 }
 
+// Segredos nao tem valor padrao: sem a variavel, a aplicacao nao sobe
+function readRequired(key: string): string {
+  const value = process.env[key];
+  if (value === undefined || value.trim() === '') {
+    throw new Error(`Environment variable ${key} is required`);
+  }
+
+  return value;
+}
+
 function readNumber(key: string, fallback: number): number {
   const value = process.env[key];
   if (value === undefined || value.trim() === '') {
@@ -53,12 +63,12 @@ export const env: Env = {
   database: {
     host: readString('DB_HOST', 'localhost'),
     port: readNumber('DB_PORT', 5434),
-    user: readString('DB_USER', 'admin'),
-    password: readString('DB_PASSWORD', 'password123'),
+    user: readRequired('DB_USER'),
+    password: readRequired('DB_PASSWORD'),
     name: readString('DB_NAME', 'sctec'),
   },
   jwt: {
-    secret: readString('JWT_SECRET', 'troque-este-valor-em-producao'),
+    secret: readRequired('JWT_SECRET'),
     expiresIn: readString('JWT_EXPIRES_IN', '1d'),
   },
   bcryptSaltRounds: readNumber('BCRYPT_SALT_ROUNDS', 10),
