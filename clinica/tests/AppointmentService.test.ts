@@ -165,4 +165,63 @@ describe('AppointmentService', () => {
       expect(tx.create).not.toHaveBeenCalled();
     });
   });
+
+  describe('ordem das validacoes e uso do lock', () => {
+    it('valida existencia e escala fora do lock, sem abrir transacao quando falham', async () => {
+      await expect(create(new Date('2026-10-13T13:00:00-03:00'))).rejects.toMatchObject({
+        code: 'HORARIO_FORA_DA_ESCALA',
+      });
+      doctorService.findById.mockRejectedValueOnce(notFound('Medico'));
+      await expect(create()).rejects.toMatchObject({ code: 'RECURSO_NAO_ENCONTRADO' });
+
+      expect(appointmentRepository.withDoctorLock).not.toHaveBeenCalled();
+    });
+
+    it('responde 404 antes de olhar a escala, mesmo com horario invalido', async () => {
+      patientService.findById.mockRejectedValue(notFound('Paciente'));
+
+      await expect(create(new Date('2026-10-13T08:20:00-03:00'))).rejects.toMatchObject({
+        code: 'RECURSO_NAO_ENCONTRADO',
+      });
+    });
+
+    it('nao consulta o paciente nem grava quando o medico ja esta ocupado', async () => {
+      tx.hasDoctorOverlap.mockResolvedValue(true);
+
+      await expect(create()).rejects.toMatchObject({ code: 'HORARIO_INDISPONIVEL' });
+      expect(tx.hasPatientOverlap).not.toHaveBeenCalled();
+      expect(tx.create).not.toHaveBeenCalled();
+    });
+
+    it('responde HORARIO_INDISPONIVEL quando medico e paciente estao ocupados', async () => {
+      tx.hasDoctorOverlap.mockResolvedValue(true);
+      tx.hasPatientOverlap.mockResolvedValue(true);
+
+      await expect(create()).rejects.toMatchObject({ code: 'HORARIO_INDISPONIVEL' });
+    });
+
+    it('faz as verificacoes de conflito dentro do callback do lock', async () => {
+      // Lock que nao executa o callback: nenhuma verificacao pode acontecer fora dele
+      const appointment = persisted({
+        doctorId: 3,
+        patientId: 10,
+        startsAt: TUESDAY_08_00,
+        endsAt: new Date('2026-10-13T11:30:00Z'),
+      });
+      appointmentRepository.withDoctorLock.mockResolvedValue(appointment);
+
+      await create();
+
+      expect(tx.hasDoctorOverlap).not.toHaveBeenCalled();
+      expect(tx.hasPatientOverlap).not.toHaveBeenCalled();
+      expect(tx.create).not.toHaveBeenCalled();
+    });
+
+    it('propaga o erro da transacao sem engolir', async () => {
+      const failure = new Error('conexao perdida');
+      tx.create.mockRejectedValue(failure);
+
+      await expect(create()).rejects.toBe(failure);
+    });
+  });
 });
