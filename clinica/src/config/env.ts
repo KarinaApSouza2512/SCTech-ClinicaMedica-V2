@@ -75,7 +75,7 @@ function readDatabase(): DatabaseConfig {
 
   return {
     host: readString('DB_HOST', 'localhost'),
-    port: readNumber('DB_PORT', 5434),
+    port: readNumber('DB_PORT', 5432),
     user: readRequired('DB_USER'),
     password: readRequired('DB_PASSWORD'),
     name: readString('DB_NAME', 'sctec'),
