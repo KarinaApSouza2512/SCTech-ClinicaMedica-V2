@@ -1,40 +1,44 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Role } from '../enums/Role';
 import { User } from '../entities/User';
-import { UserRepository } from '../repositories/UserRepository';
 import { DomainError } from '../errors/DomainError';
+import type { IUserRepository } from '../repositories/ports/IUserRepository';
+import { USER_REPOSITORY } from '../repositories/ports/IUserRepository';
 import { hashPassword } from '../utils/hash';
 
 export interface CreateUserInput {
   name: string;
   email: string;
   password: string;
-  role?: Role;
+  roles: Role[];
 }
 
 export interface PublicUser {
-  id: string;
+  id: number;
   name: string;
   email: string;
-  role: Role;
-  createdAt: Date;
+  roles: Role[];
 }
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+// Perfil repetido na lista nao muda nada; guarda cada um uma vez
+function uniqueRoles(roles: Role[]): Role[] {
+  return [...new Set(roles)];
+}
+
 @Injectable()
 export class UserService {
-  constructor(private readonly userRepository: UserRepository) {}
+  constructor(@Inject(USER_REPOSITORY) private readonly userRepository: IUserRepository) {}
 
   toPublic(user: User): PublicUser {
     return {
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role,
-      createdAt: user.createdAt,
+      roles: user.roles,
     };
   }
 
@@ -46,17 +50,15 @@ export class UserService {
       throw new DomainError('EMAIL_JA_CADASTRADO', 'E-mail ja cadastrado');
     }
 
-    const user = this.userRepository.create({
+    return this.userRepository.create({
       name: input.name.trim(),
       email,
       password: await hashPassword(input.password),
-      role: input.role ?? Role.ATTENDANT,
+      roles: uniqueRoles(input.roles),
     });
-
-    return this.userRepository.save(user);
   }
 
-  async findById(id: string): Promise<User> {
+  async findById(id: number): Promise<User> {
     const user = await this.userRepository.findById(id);
 
     if (!user) {

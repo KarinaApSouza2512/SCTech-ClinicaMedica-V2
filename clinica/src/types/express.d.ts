@@ -3,9 +3,8 @@ import { Role } from '../enums/Role';
 declare global {
   namespace Express {
     interface AuthenticatedUser {
-      id: string;
-      email: string;
-      role: Role;
+      id: number;
+      roles: Role[];
     }
 
     interface Request {

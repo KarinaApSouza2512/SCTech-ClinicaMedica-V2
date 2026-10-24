@@ -13,12 +13,19 @@ interface JwtConfig {
   expiresIn: string;
 }
 
+interface AdminConfig {
+  name: string;
+  email: string;
+  password: string;
+}
+
 interface Env {
   nodeEnv: string;
   port: number;
   database: DatabaseConfig;
   jwt: JwtConfig;
   bcryptSaltRounds: number;
+  admin: AdminConfig;
 }
 
 function readString(key: string, fallback: string): string {
@@ -55,4 +62,10 @@ export const env: Env = {
     expiresIn: readString('JWT_EXPIRES_IN', '1d'),
   },
   bcryptSaltRounds: readNumber('BCRYPT_SALT_ROUNDS', 10),
+  // Sem valor padrao para e-mail e senha: a seed recusa rodar sem eles
+  admin: {
+    name: readString('ADMIN_NAME', 'Administrador'),
+    email: readString('ADMIN_EMAIL', ''),
+    password: readString('ADMIN_PASSWORD', ''),
+  },
 };

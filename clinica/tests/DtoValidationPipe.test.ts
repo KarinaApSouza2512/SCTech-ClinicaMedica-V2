@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { ArgumentMetadata } from '@nestjs/common';
+import { CreateUserDto } from '../src/dto/CreateUserDto';
 import { IdParamDto } from '../src/dto/IdParamDto';
 import { LoginDto } from '../src/dto/LoginDto';
 import { DomainError } from '../src/errors/DomainError';
@@ -30,6 +31,26 @@ describe('DtoValidationPipe', () => {
   it('recusa corpo ausente com DADOS_INVALIDOS', async () => {
     await expect(pipe.transform(undefined, body)).rejects.toMatchObject({
       code: 'DADOS_INVALIDOS',
+    });
+  });
+
+  describe('CreateUserDto', () => {
+    const createUser: ArgumentMetadata = { type: 'body', metatype: CreateUserDto };
+    const valid = {
+      name: 'Joana',
+      email: 'joana@medclinic.com',
+      password: 'SenhaForte@123',
+      roles: ['secretary'],
+    };
+
+    it('aceita perfis validos', async () => {
+      await expect(pipe.transform(valid, createUser)).resolves.toMatchObject(valid);
+    });
+
+    it.each([[['root']], [[]], ['admin']])('recusa roles %j com DADOS_INVALIDOS', async (roles) => {
+      await expect(pipe.transform({ ...valid, roles }, createUser)).rejects.toMatchObject({
+        code: 'DADOS_INVALIDOS',
+      });
     });
   });
 });

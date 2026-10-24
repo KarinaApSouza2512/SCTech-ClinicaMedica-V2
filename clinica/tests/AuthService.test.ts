@@ -2,6 +2,7 @@ import { AuthService } from '../src/services/AuthService';
 import { UserService } from '../src/services/UserService';
 import { User } from '../src/entities/User';
 import { Role } from '../src/enums/Role';
+import { DomainError } from '../src/errors/DomainError';
 import { comparePassword } from '../src/utils/hash';
 import { signAccessToken } from '../src/utils/jwt';
 
@@ -20,11 +21,11 @@ const signAccessTokenMock = signAccessToken as jest.Mock;
 
 function buildUser(overrides: Partial<User> = {}): User {
   return {
-    id: '1',
+    id: 1,
     name: 'Ana',
     email: 'ana@x.com',
     password: 'hashed-password',
-    role: Role.ATTENDANT,
+    roles: [Role.SECRETARY],
     createdAt: new Date('2024-01-01'),
     ...overrides,
   } as User;
@@ -36,66 +37,62 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     userService = {
-      create: jest.fn(),
-      toPublic: jest.fn(),
-      findById: jest.fn(),
       findByEmailWithPassword: jest.fn(),
     } as unknown as jest.Mocked<UserService>;
 
     authService = new AuthService(userService);
   });
 
-  describe('register', () => {
-    it('cria o usuario e retorna a versao publica dele', async () => {
-      const input = { name: 'Ana', email: 'ana@x.com', password: '123456' };
-      const createdUser = buildUser();
-      const publicUser = { id: '1', name: 'Ana', email: 'ana@x.com', role: Role.ATTENDANT, createdAt: createdUser.createdAt };
-
-      userService.create.mockResolvedValue(createdUser);
-      userService.toPublic.mockReturnValue(publicUser);
-
-      const result = await authService.register(input);
-
-      expect(userService.create).toHaveBeenCalledWith(input);
-      expect(userService.toPublic).toHaveBeenCalledWith(createdUser);
-      expect(result).toEqual(publicUser);
-    });
-  });
-
   describe('login', () => {
-    it('retorna token e usuario publico quando as credenciais sao validas', async () => {
-      const user = buildUser();
-      const publicUser = { id: '1', name: 'Ana', email: 'ana@x.com', role: Role.ATTENDANT, createdAt: user.createdAt };
-
+    it('retorna o accessToken assinado com id e perfis quando as credenciais sao validas', async () => {
+      const user = buildUser({ roles: [Role.DOCTOR, Role.ADMIN] });
       userService.findByEmailWithPassword.mockResolvedValue(user);
       comparePasswordMock.mockResolvedValue(true);
       signAccessTokenMock.mockReturnValue('fake-token');
-      userService.toPublic.mockReturnValue(publicUser);
 
       const result = await authService.login({ email: 'ana@x.com', password: '123456' });
 
-      expect(comparePasswordMock).toHaveBeenCalledWith('123456', user.password);
-      expect(signAccessTokenMock).toHaveBeenCalledWith({ sub: user.id, email: user.email, role: user.role });
-      expect(result).toEqual({ token: 'fake-token', user: publicUser });
+      expect(userService.findByEmailWithPassword).toHaveBeenCalledWith('ana@x.com');
+      expect(signAccessTokenMock).toHaveBeenCalledWith({
+        sub: 1,
+        roles: [Role.DOCTOR, Role.ADMIN],
+      });
+      expect(result).toEqual({ accessToken: 'fake-token' });
     });
 
-    it('lanca erro generico quando o usuario nao existe', async () => {
+    it('compara a senha digitada com o hash salvo, e nao com texto puro', async () => {
+      userService.findByEmailWithPassword.mockResolvedValue(buildUser());
+      comparePasswordMock.mockResolvedValue(true);
+
+      await authService.login({ email: 'ana@x.com', password: 'senha-digitada' });
+
+      expect(comparePasswordMock).toHaveBeenCalledTimes(1);
+      expect(comparePasswordMock).toHaveBeenCalledWith('senha-digitada', 'hashed-password');
+    });
+
+    it('lanca CREDENCIAIS_INVALIDAS quando o e-mail nao existe', async () => {
       userService.findByEmailWithPassword.mockResolvedValue(null);
 
-      await expect(authService.login({ email: 'inexistente@x.com', password: '123456' }))
-        .rejects.toMatchObject({ code: 'CREDENCIAIS_INVALIDAS' });
+      const result = authService.login({ email: 'inexistente@x.com', password: '123456' });
 
+      await expect(result).rejects.toBeInstanceOf(DomainError);
+      await expect(result).rejects.toMatchObject({ code: 'CREDENCIAIS_INVALIDAS' });
       expect(comparePasswordMock).not.toHaveBeenCalled();
+      expect(signAccessTokenMock).not.toHaveBeenCalled();
     });
 
-    it('lanca o mesmo erro generico quando a senha esta incorreta', async () => {
-      const user = buildUser();
-      userService.findByEmailWithPassword.mockResolvedValue(user);
+    it('lanca o mesmo erro quando a senha esta incorreta', async () => {
+      userService.findByEmailWithPassword.mockResolvedValue(buildUser());
       comparePasswordMock.mockResolvedValue(false);
 
-      await expect(authService.login({ email: user.email, password: 'senha-errada' }))
-        .rejects.toMatchObject({ code: 'CREDENCIAIS_INVALIDAS' });
+      const result = authService.login({ email: 'ana@x.com', password: 'senha-errada' });
 
+      // Mesmo codigo e mesma mensagem: nao revela qual dos dois falhou
+      await expect(result).rejects.toMatchObject({
+        code: 'CREDENCIAIS_INVALIDAS',
+        message: 'Credenciais invalidas',
+      });
+      expect(comparePasswordMock).toHaveBeenCalledWith('senha-errada', 'hashed-password');
       expect(signAccessTokenMock).not.toHaveBeenCalled();
     });
   });

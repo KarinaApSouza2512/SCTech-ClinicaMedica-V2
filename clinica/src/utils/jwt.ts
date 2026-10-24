@@ -1,12 +1,12 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { env } from '../config/env';
-import { isRole, Role } from '../enums/Role';
+import { isRoleList, Role } from '../enums/Role';
 import { DomainError } from '../errors/DomainError';
 
+// O token carrega so o id do usuario e os perfis
 export interface AccessTokenPayload {
-  sub: string;
-  email: string;
-  role: Role;
+  sub: number;
+  roles: Role[];
 }
 
 function isAccessTokenPayload(value: unknown): value is AccessTokenPayload {
@@ -15,11 +15,7 @@ function isAccessTokenPayload(value: unknown): value is AccessTokenPayload {
   }
 
   const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.sub === 'string' &&
-    typeof candidate.email === 'string' &&
-    isRole(candidate.role)
-  );
+  return Number.isInteger(candidate.sub) && isRoleList(candidate.roles);
 }
 
 export function signAccessToken(payload: AccessTokenPayload): string {
