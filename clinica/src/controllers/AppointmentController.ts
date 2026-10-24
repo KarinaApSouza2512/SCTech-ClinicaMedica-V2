@@ -38,6 +38,14 @@ export class AppointmentController {
     return { data: page.data.map(toAppointmentResponse), meta: page.meta };
   }
 
+  @Get(':id')
+  async findById(
+    @Param() params: IdParamDto,
+    @CurrentUser() user: Express.AuthenticatedUser,
+  ): Promise<AppointmentResponse> {
+    return toAppointmentResponse(await this.appointmentService.findById(params.id, user));
+  }
+
   // Qualquer autenticado chega aqui; quem pode cada transicao e decidido no service
   @Patch(':id/status')
   async changeStatus(

@@ -379,4 +379,42 @@ describe('AppointmentService', () => {
       ).rejects.toMatchObject({ code: 'DADOS_INVALIDOS' });
     });
   });
+
+  describe('findById', () => {
+    const appointment = persisted({
+      doctorId: 3,
+      patientId: 10,
+      startsAt: TUESDAY_08_00,
+      endsAt: new Date('2026-10-13T11:30:00Z'),
+    });
+
+    beforeEach(() => {
+      appointmentRepository.findById.mockResolvedValue(appointment);
+    });
+
+    it('medico da consulta, admin e secretary consultam', async () => {
+      doctorService.findByUserId.mockResolvedValue({ id: 3 } as Doctor);
+
+      for (const roles of [[Role.DOCTOR], [Role.ADMIN], [Role.SECRETARY]]) {
+        await expect(appointmentService.findById(41, { id: 7, roles })).resolves.toBe(appointment);
+      }
+    });
+
+    it('lanca ACESSO_NEGADO para medico de outra consulta', async () => {
+      doctorService.findByUserId.mockResolvedValue({ id: 4 } as Doctor);
+
+      await expect(
+        appointmentService.findById(41, { id: 8, roles: [Role.DOCTOR] }),
+      ).rejects.toMatchObject({ code: 'ACESSO_NEGADO' });
+    });
+
+    it('lanca 404 antes de checar a posse', async () => {
+      appointmentRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        appointmentService.findById(99, { id: 8, roles: [Role.DOCTOR] }),
+      ).rejects.toMatchObject({ code: 'RECURSO_NAO_ENCONTRADO' });
+      expect(doctorService.findByUserId).not.toHaveBeenCalled();
+    });
+  });
 });

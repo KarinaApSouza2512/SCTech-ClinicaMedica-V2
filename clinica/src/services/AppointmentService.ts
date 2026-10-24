@@ -116,6 +116,19 @@ export class AppointmentService {
     return appointment;
   }
 
+  // 404 antes de 403: medico sem admin so ve agendamento em que ele e o medico
+  async findById(id: number, requester: Requester): Promise<Appointment> {
+    const appointment = await this.findExisting(id);
+
+    if (this.isDoctorOnly(requester)) {
+      if ((await this.ownDoctorId(requester)) !== appointment.doctorId) {
+        throw new DomainError('ACESSO_NEGADO', 'Agendamento de outro medico');
+      }
+    }
+
+    return appointment;
+  }
+
   // Medico sem admin so enxerga os proprios agendamentos, seja qual for o doctorId pedido
   async list(input: ListAppointmentsInput, requester: Requester): Promise<Paginated<Appointment>> {
     if (input.from && input.to && input.from > input.to) {
