@@ -1,4 +1,11 @@
-import { findShiftForSlot, Period, periodsOverlap } from '../src/services/AppointmentRules';
+import { AppointmentStatus } from '../src/enums/AppointmentStatus';
+import {
+  findShiftForSlot,
+  Period,
+  periodsOverlap,
+  StatusActor,
+  transitionAuthority,
+} from '../src/services/AppointmentRules';
 
 function period(start: string, end: string): Period {
   return { start: new Date(`2026-10-13T${start}:00Z`), end: new Date(`2026-10-13T${end}:00Z`) };
@@ -61,6 +68,50 @@ describe('AppointmentRules', () => {
 
     it('trata o fim do turno como exclusivo', () => {
       expect(findShiftForSlot(shifts, 2, at(12))).toBeNull();
+    });
+  });
+
+  describe('transitionAuthority', () => {
+    const { SCHEDULED, IN_PROGRESS, DONE, CANCELLED } = AppointmentStatus;
+    const none: StatusActor = { isAdmin: false, isSecretary: false, isAppointmentDoctor: false };
+    const actors: Record<string, StatusActor> = {
+      admin: { ...none, isAdmin: true },
+      secretary: { ...none, isSecretary: true },
+      appointmentDoctor: { ...none, isAppointmentDoctor: true },
+      otherDoctor: none,
+    };
+
+    // Tabela da secao 4.9.7: quem pode cada transicao permitida
+    const allowed: [AppointmentStatus, AppointmentStatus, string[]][] = [
+      [SCHEDULED, IN_PROGRESS, ['admin', 'appointmentDoctor']],
+      [SCHEDULED, CANCELLED, ['admin', 'secretary', 'appointmentDoctor']],
+      [IN_PROGRESS, DONE, ['admin', 'appointmentDoctor']],
+      [IN_PROGRESS, CANCELLED, ['admin', 'appointmentDoctor']],
+    ];
+
+    it.each(allowed)('%s -> %s: so %j podem', (from, to, who) => {
+      const authority = transitionAuthority(from, to);
+
+      expect(authority).not.toBeNull();
+      for (const [name, actor] of Object.entries(actors)) {
+        expect([name, authority?.(actor)]).toEqual([name, who.includes(name)]);
+      }
+    });
+
+    const statuses = [SCHEDULED, IN_PROGRESS, DONE, CANCELLED];
+    const notAllowed = statuses
+      .flatMap((from) => statuses.map((to): [AppointmentStatus, AppointmentStatus] => [from, to]))
+      .filter(([from, to]) => !allowed.some(([f, t]) => f === from && t === to));
+
+    it.each(notAllowed)('%s -> %s nao existe no ciclo de vida', (from, to) => {
+      expect(transitionAuthority(from, to)).toBeNull();
+    });
+
+    it('done e cancelled sao finais', () => {
+      for (const to of statuses) {
+        expect(transitionAuthority(DONE, to)).toBeNull();
+        expect(transitionAuthority(CANCELLED, to)).toBeNull();
+      }
     });
   });
 });

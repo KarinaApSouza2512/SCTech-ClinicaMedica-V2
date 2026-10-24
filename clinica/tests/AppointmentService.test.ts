@@ -290,6 +290,68 @@ describe('AppointmentService', () => {
       expect(result.status).toBe(AppointmentStatus.IN_PROGRESS);
     });
 
+    it('admin inicia e conclui consulta de qualquer medico', async () => {
+      appointmentRepository.findById.mockResolvedValueOnce(stored(AppointmentStatus.SCHEDULED));
+      await expect(changeStatus(AppointmentStatus.IN_PROGRESS, admin)).resolves.toMatchObject({
+        status: AppointmentStatus.IN_PROGRESS,
+      });
+
+      appointmentRepository.findById.mockResolvedValueOnce(stored(AppointmentStatus.IN_PROGRESS));
+      await expect(changeStatus(AppointmentStatus.DONE, admin)).resolves.toMatchObject({
+        status: AppointmentStatus.DONE,
+      });
+    });
+
+    it('secretary cancela consulta agendada', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.SCHEDULED));
+
+      await expect(changeStatus(AppointmentStatus.CANCELLED, secretary)).resolves.toMatchObject({
+        status: AppointmentStatus.CANCELLED,
+      });
+      expect(doctorService.findByUserId).not.toHaveBeenCalled();
+    });
+
+    it('secretary nao cancela consulta em andamento (403)', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.IN_PROGRESS));
+
+      await expect(changeStatus(AppointmentStatus.CANCELLED, secretary)).rejects.toMatchObject({
+        code: 'ACESSO_NEGADO',
+      });
+    });
+
+    it('secretary nao inicia atendimento (403)', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.SCHEDULED));
+
+      await expect(changeStatus(AppointmentStatus.IN_PROGRESS, secretary)).rejects.toMatchObject({
+        code: 'ACESSO_NEGADO',
+      });
+    });
+
+    it('medico da consulta cancela em andamento e conclui', async () => {
+      appointmentRepository.findById.mockResolvedValueOnce(stored(AppointmentStatus.IN_PROGRESS));
+      await expect(changeStatus(AppointmentStatus.CANCELLED, ownDoctor)).resolves.toBeDefined();
+
+      appointmentRepository.findById.mockResolvedValueOnce(stored(AppointmentStatus.IN_PROGRESS));
+      await expect(changeStatus(AppointmentStatus.DONE, ownDoctor)).resolves.toBeDefined();
+    });
+
+    it('usuario com perfil doctor sem cadastro de medico nao e dono da consulta', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.SCHEDULED));
+
+      await expect(
+        changeStatus(AppointmentStatus.IN_PROGRESS, { id: 99, roles: [Role.DOCTOR] }),
+      ).rejects.toMatchObject({ code: 'ACESSO_NEGADO' });
+    });
+
+    it('cancelled nao volta para nenhum status (422)', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.CANCELLED));
+
+      for (const to of Object.values(AppointmentStatus)) {
+        await expect(changeStatus(to, admin)).rejects.toMatchObject({ code: 'TRANSICAO_INVALIDA' });
+      }
+      expect(appointmentRepository.updateStatus).not.toHaveBeenCalled();
+    });
+
     it('lanca 404 quando o agendamento nao existe', async () => {
       appointmentRepository.findById.mockResolvedValue(null);
 
