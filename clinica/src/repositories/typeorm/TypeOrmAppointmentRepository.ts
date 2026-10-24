@@ -61,6 +61,19 @@ export class TypeOrmAppointmentRepository implements IAppointmentRepository {
     return this.dataSource.getRepository(Appointment).findOne({ where: { id } });
   }
 
+  findActiveByDoctorBetween(doctorId: number, start: Date, end: Date): Promise<Appointment[]> {
+    return this.dataSource
+      .getRepository(Appointment)
+      .createQueryBuilder('appointment')
+      .where('appointment.doctorId = :doctorId', { doctorId })
+      .andWhere('appointment.status <> :cancelled', { cancelled: AppointmentStatus.CANCELLED })
+      .andWhere('appointment.startsAt < :end', { end })
+      .andWhere('appointment.endsAt > :start', { start })
+      .orderBy('appointment.startsAt', 'ASC')
+      .addOrderBy('appointment.id', 'ASC')
+      .getMany();
+  }
+
   findPage(filter: AppointmentFilter): Promise<[Appointment[], number]> {
     const query = this.dataSource
       .getRepository(Appointment)

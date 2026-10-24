@@ -31,6 +31,8 @@ export interface IAppointmentTransaction {
 // Porta usada pelos services; os testes trocam por um duble
 export interface IAppointmentRepository {
   findById(id: number): Promise<Appointment | null>;
+  // Agendamentos nao cancelados do medico que tocam [start, end), ordenados por inicio
+  findActiveByDoctorBetween(doctorId: number, start: Date, end: Date): Promise<Appointment[]>;
   // Pagina pedida, ordenada por inicio, e total de registros que atendem ao filtro
   findPage(filter: AppointmentFilter): Promise<[Appointment[], number]>;
   // Grava o novo status so se o atual ainda for from; false se outra requisicao mudou antes

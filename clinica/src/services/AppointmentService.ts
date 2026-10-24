@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Appointment } from '../entities/Appointment';
+import { WorkShift } from '../entities/WorkShift';
 import { AppointmentStatus } from '../enums/AppointmentStatus';
 import { Role } from '../enums/Role';
 import { DomainError } from '../errors/DomainError';
@@ -8,7 +9,13 @@ import { APPOINTMENT_REPOSITORY } from '../repositories/ports/IAppointmentReposi
 import type { IWorkScheduleRepository } from '../repositories/ports/IWorkScheduleRepository';
 import { WORK_SCHEDULE_REPOSITORY } from '../repositories/ports/IWorkScheduleRepository';
 import type { Requester } from '../types/Requester';
-import { clinicDayStart, nextDay, toClinicTime } from '../utils/clinicTime';
+import {
+  clinicDayRange,
+  clinicDayStart,
+  countDays,
+  nextDay,
+  toClinicTime,
+} from '../utils/clinicTime';
 import { buildPage, Paginated, PaginationParams } from '../utils/pagination';
 import { findShiftForSlot, transitionAuthority } from './AppointmentRules';
 import { DoctorService } from './DoctorService';
@@ -29,7 +36,13 @@ export interface ListAppointmentsInput extends PaginationParams {
   to?: string;
 }
 
+export interface DoctorCalendar {
+  shifts: WorkShift[];
+  appointments: Appointment[];
+}
+
 const MINUTE_MS = 60_000;
+const MAX_CALENDAR_DAYS = 31;
 
 @Injectable()
 export class AppointmentService {
@@ -156,6 +169,30 @@ export class AppointmentService {
     });
 
     return buildPage(appointments, total, params);
+  }
+
+  // Escala e consultas ativas do periodo; os horarios livres sao montados no front-end (RF05)
+  async calendar(doctorId: number, from: string, to: string): Promise<DoctorCalendar> {
+    if (from > to) {
+      throw new DomainError('DADOS_INVALIDOS', 'from deve ser anterior ou igual a to');
+    }
+
+    if (countDays(from, to) > MAX_CALENDAR_DAYS) {
+      throw new DomainError(
+        'DADOS_INVALIDOS',
+        `O periodo da agenda deve ter no maximo ${MAX_CALENDAR_DAYS} dias`,
+      );
+    }
+
+    await this.doctorService.findById(doctorId);
+    const { start, end } = clinicDayRange(from, to);
+
+    const [shifts, appointments] = await Promise.all([
+      this.workScheduleRepository.findByDoctorId(doctorId),
+      this.appointmentRepository.findActiveByDoctorBetween(doctorId, start, end),
+    ]);
+
+    return { shifts, appointments };
   }
 
   private isDoctorOnly(requester: Requester): boolean {

@@ -55,6 +55,7 @@ describe('AppointmentService', () => {
       withDoctorLock: jest.fn((_doctorId, work) => work(tx)),
       findById: jest.fn(),
       findPage: jest.fn().mockResolvedValue([[], 0]),
+      findActiveByDoctorBetween: jest.fn().mockResolvedValue([]),
       updateStatus: jest.fn().mockResolvedValue(true),
     } as jest.Mocked<IAppointmentRepository>;
     workScheduleRepository = {
@@ -415,6 +416,44 @@ describe('AppointmentService', () => {
         appointmentService.findById(99, { id: 8, roles: [Role.DOCTOR] }),
       ).rejects.toMatchObject({ code: 'RECURSO_NAO_ENCONTRADO' });
       expect(doctorService.findByUserId).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('calendar', () => {
+    it('busca a escala e os agendamentos ativos do periodo local inteiro', async () => {
+      const result = await appointmentService.calendar(3, '2026-10-12', '2026-10-16');
+
+      expect(doctorService.findById).toHaveBeenCalledWith(3);
+      // 12/10 00:00 local ate o fim de 16/10 local (inicio de 17/10)
+      expect(appointmentRepository.findActiveByDoctorBetween).toHaveBeenCalledWith(
+        3,
+        new Date('2026-10-12T03:00:00Z'),
+        new Date('2026-10-17T03:00:00Z'),
+      );
+      expect(result.shifts).toHaveLength(2);
+      expect(result.appointments).toEqual([]);
+    });
+
+    it('recusa from posterior a to', async () => {
+      const result = appointmentService.calendar(3, '2026-10-16', '2026-10-12');
+
+      await expect(result).rejects.toMatchObject({ code: 'DADOS_INVALIDOS' });
+    });
+
+    it('recusa periodo com mais de 31 dias', async () => {
+      const result = appointmentService.calendar(3, '2026-10-01', '2026-11-01');
+
+      await expect(result).rejects.toMatchObject({ code: 'DADOS_INVALIDOS' });
+      expect(doctorService.findById).not.toHaveBeenCalled();
+    });
+
+    it('propaga o 404 do medico inexistente', async () => {
+      doctorService.findById.mockRejectedValue(notFound('Medico'));
+
+      const result = appointmentService.calendar(99, '2026-10-12', '2026-10-16');
+
+      await expect(result).rejects.toMatchObject({ code: 'RECURSO_NAO_ENCONTRADO' });
+      expect(appointmentRepository.findActiveByDoctorBetween).not.toHaveBeenCalled();
     });
   });
 });
