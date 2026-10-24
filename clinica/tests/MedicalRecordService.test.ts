@@ -91,6 +91,38 @@ describe('MedicalRecordService', () => {
     });
   });
 
+  describe('create, casos de borda do vinculo', () => {
+    it('usuario com perfil doctor sem cadastro de medico recebe ACESSO_NEGADO', async () => {
+      await expect(
+        medicalRecordService.create(10, 'Texto', { id: 99, roles: [Role.DOCTOR] }),
+      ).rejects.toMatchObject({ code: 'ACESSO_NEGADO' });
+      expect(appointmentRepository.hasCareLink).not.toHaveBeenCalled();
+    });
+
+    it('ser admin nao dispensa o vinculo para escrever', async () => {
+      const doctorAdmin = { id: 8, roles: [Role.DOCTOR, Role.ADMIN] };
+
+      await expect(medicalRecordService.create(10, 'Texto', doctorAdmin)).rejects.toMatchObject({
+        code: 'ACESSO_NEGADO',
+      });
+    });
+
+    it('sem perfil doctor nao procura medico nem vinculo', async () => {
+      await expect(
+        medicalRecordService.create(10, 'Texto', { id: 2, roles: [Role.SECRETARY] }),
+      ).rejects.toMatchObject({ code: 'ACESSO_NEGADO' });
+      expect(doctorService.findByUserId).not.toHaveBeenCalled();
+    });
+
+    it('o vinculo e conferido para o paciente da rota', async () => {
+      // Medico 3 atendeu o paciente 10, mas nao o 11
+      await expect(medicalRecordService.create(11, 'Texto', linkedDoctor)).rejects.toMatchObject({
+        code: 'ACESSO_NEGADO',
+      });
+      expect(appointmentRepository.hasCareLink).toHaveBeenCalledWith(3, 11);
+    });
+  });
+
   describe('list', () => {
     it('medico com vinculo le o prontuario paginado', async () => {
       const records = [record({ patientId: 10, doctorId: 3, text: 'B' }, 6)];
@@ -117,6 +149,33 @@ describe('MedicalRecordService', () => {
         code: 'ACESSO_NEGADO',
       });
       expect(medicalRecordRepository.findPageByPatient).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('list, casos de borda', () => {
+    it('medico que tambem e admin le sem vinculo', async () => {
+      await medicalRecordService.list(10, page, { id: 8, roles: [Role.DOCTOR, Role.ADMIN] });
+
+      expect(appointmentRepository.hasCareLink).not.toHaveBeenCalled();
+      expect(medicalRecordRepository.findPageByPatient).toHaveBeenCalled();
+    });
+
+    it('paciente inexistente gera 404 antes do 403 de vinculo', async () => {
+      patientService.findById.mockRejectedValue(
+        new DomainError('RECURSO_NAO_ENCONTRADO', 'Paciente nao encontrado'),
+      );
+
+      await expect(medicalRecordService.list(99, page, unlinkedDoctor)).rejects.toMatchObject({
+        code: 'RECURSO_NAO_ENCONTRADO',
+      });
+    });
+
+    it('calcula a meta da pagina pedida', async () => {
+      medicalRecordRepository.findPageByPatient.mockResolvedValue([[], 45]);
+
+      const result = await medicalRecordService.list(10, { page: 2, pageSize: 20 }, linkedDoctor);
+
+      expect(result.meta).toEqual({ total: 45, page: 2, pageSize: 20, totalPages: 3 });
     });
   });
 });
