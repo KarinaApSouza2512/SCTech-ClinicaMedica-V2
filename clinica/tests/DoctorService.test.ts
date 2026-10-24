@@ -1,6 +1,7 @@
 import { Doctor } from '../src/entities/Doctor';
 import { User } from '../src/entities/User';
 import { Role } from '../src/enums/Role';
+import { DomainError } from '../src/errors/DomainError';
 import { IDoctorRepository } from '../src/repositories/ports/IDoctorRepository';
 import { IUserRepository } from '../src/repositories/ports/IUserRepository';
 import { DoctorService } from '../src/services/DoctorService';
@@ -107,6 +108,41 @@ describe('DoctorService', () => {
           crm: 'CRM-SC-54321',
         }),
       );
+    });
+  });
+
+  describe('create com conflito', () => {
+    it('lanca EMAIL_JA_CADASTRADO e nao grava nada quando o e-mail ja existe', async () => {
+      userRepository.findByEmail.mockResolvedValue({ id: 1 } as User);
+
+      const result = doctorService.create(validInput);
+
+      await expect(result).rejects.toBeInstanceOf(DomainError);
+      await expect(result).rejects.toMatchObject({ code: 'EMAIL_JA_CADASTRADO' });
+      expect(hashPasswordMock).not.toHaveBeenCalled();
+      expect(doctorRepository.createWithUser).not.toHaveBeenCalled();
+    });
+
+    it('lanca CRM_JA_CADASTRADO e nao cria o usuario quando o CRM ja existe', async () => {
+      userRepository.findByEmail.mockResolvedValue(null);
+      doctorRepository.findByCrm.mockResolvedValue(buildDoctor());
+
+      await expect(
+        doctorService.create({ ...validInput, email: 'novo@medclinic.com' }),
+      ).rejects.toMatchObject({ code: 'CRM_JA_CADASTRADO' });
+      expect(doctorRepository.createWithUser).not.toHaveBeenCalled();
+      expect(userRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('propaga o erro do repositorio quando a constraint barra uma corrida', async () => {
+      userRepository.findByEmail.mockResolvedValue(null);
+      doctorRepository.findByCrm.mockResolvedValue(null);
+      hashPasswordMock.mockResolvedValue('hashed-password');
+      // Outro cadastro gravou o mesmo CRM entre a verificacao e a transacao
+      const conflict = new DomainError('CRM_JA_CADASTRADO', 'CRM ja cadastrado');
+      doctorRepository.createWithUser.mockRejectedValue(conflict);
+
+      await expect(doctorService.create(validInput)).rejects.toBe(conflict);
     });
   });
 
