@@ -7,6 +7,7 @@ import { UserService } from '../services/UserService';
 @Module({
   controllers: [UserController],
   providers: [{ provide: USER_REPOSITORY, useClass: TypeOrmUserRepository }, UserService],
-  exports: [UserService],
+  // O repositorio sai do modulo para o DoctorService checar e-mail repetido
+  exports: [UserService, USER_REPOSITORY],
 })
 export class UserModule {}

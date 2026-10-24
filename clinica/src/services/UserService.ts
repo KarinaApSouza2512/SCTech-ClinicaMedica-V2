@@ -4,6 +4,7 @@ import { User } from '../entities/User';
 import { DomainError } from '../errors/DomainError';
 import type { IUserRepository } from '../repositories/ports/IUserRepository';
 import { USER_REPOSITORY } from '../repositories/ports/IUserRepository';
+import { normalizeEmail } from '../utils/email';
 import { hashPassword } from '../utils/hash';
 
 export interface CreateUserInput {
@@ -18,10 +19,6 @@ export interface PublicUser {
   name: string;
   email: string;
   roles: Role[];
-}
-
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
 }
 
 // Perfil repetido na lista nao muda nada; guarda cada um uma vez

@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import { User } from '../../entities/User';
 import { Role } from '../../enums/Role';
+import { normalizeEmail } from '../../utils/email';
 import { hashPassword } from '../../utils/hash';
 
 export interface AdminSeedConfig {
@@ -18,7 +19,7 @@ export async function createAdmin(
   dataSource: DataSource,
   config: AdminSeedConfig,
 ): Promise<boolean> {
-  const email = config.email.trim().toLowerCase();
+  const email = normalizeEmail(config.email);
 
   if (!isAdminConfigured(config)) {
     throw new Error('ADMIN_EMAIL e ADMIN_PASSWORD precisam estar definidos para criar o admin');
