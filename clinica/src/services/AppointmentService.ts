@@ -8,7 +8,8 @@ import { APPOINTMENT_REPOSITORY } from '../repositories/ports/IAppointmentReposi
 import type { IWorkScheduleRepository } from '../repositories/ports/IWorkScheduleRepository';
 import { WORK_SCHEDULE_REPOSITORY } from '../repositories/ports/IWorkScheduleRepository';
 import type { Requester } from '../types/Requester';
-import { toClinicTime } from '../utils/clinicTime';
+import { clinicDayStart, nextDay, toClinicTime } from '../utils/clinicTime';
+import { buildPage, Paginated, PaginationParams } from '../utils/pagination';
 import { findShiftForSlot, transitionAuthority } from './AppointmentRules';
 import { DoctorService } from './DoctorService';
 import { PatientService } from './PatientService';
@@ -17,6 +18,15 @@ export interface CreateAppointmentInput {
   doctorId: number;
   patientId: number;
   startsAt: Date;
+}
+
+export interface ListAppointmentsInput extends PaginationParams {
+  doctorId?: number;
+  patientId?: number;
+  status?: AppointmentStatus;
+  // Dias locais 'YYYY-MM-DD', inclusivos
+  from?: string;
+  to?: string;
 }
 
 const MINUTE_MS = 60_000;
@@ -104,6 +114,39 @@ export class AppointmentService {
 
     appointment.status = to;
     return appointment;
+  }
+
+  // Medico sem admin so enxerga os proprios agendamentos, seja qual for o doctorId pedido
+  async list(input: ListAppointmentsInput, requester: Requester): Promise<Paginated<Appointment>> {
+    if (input.from && input.to && input.from > input.to) {
+      throw new DomainError('DADOS_INVALIDOS', 'from deve ser anterior ou igual a to');
+    }
+
+    const params = { page: input.page, pageSize: input.pageSize };
+    let doctorId = input.doctorId;
+
+    if (this.isDoctorOnly(requester)) {
+      const ownId = await this.ownDoctorId(requester);
+      if (ownId === null) {
+        return buildPage([], 0, params);
+      }
+      doctorId = ownId;
+    }
+
+    const [appointments, total] = await this.appointmentRepository.findPage({
+      ...params,
+      doctorId,
+      patientId: input.patientId,
+      status: input.status,
+      startsFrom: input.from ? clinicDayStart(input.from) : undefined,
+      startsBefore: input.to ? clinicDayStart(nextDay(input.to)) : undefined,
+    });
+
+    return buildPage(appointments, total, params);
+  }
+
+  private isDoctorOnly(requester: Requester): boolean {
+    return requester.roles.includes(Role.DOCTOR) && !requester.roles.includes(Role.ADMIN);
   }
 
   private async findExisting(id: number): Promise<Appointment> {

@@ -1,11 +1,21 @@
 import { Appointment } from '../../entities/Appointment';
 import { AppointmentStatus } from '../../enums/AppointmentStatus';
+import { PaginationParams } from '../../utils/pagination';
 
 export interface NewAppointmentData {
   doctorId: number;
   patientId: number;
   startsAt: Date;
   endsAt: Date;
+}
+
+export interface AppointmentFilter extends PaginationParams {
+  doctorId?: number;
+  patientId?: number;
+  status?: AppointmentStatus;
+  // Inicio da consulta em [startsFrom, startsBefore)
+  startsFrom?: Date;
+  startsBefore?: Date;
 }
 
 // Operacoes disponiveis dentro da transacao de agendamento.
@@ -21,6 +31,8 @@ export interface IAppointmentTransaction {
 // Porta usada pelos services; os testes trocam por um duble
 export interface IAppointmentRepository {
   findById(id: number): Promise<Appointment | null>;
+  // Pagina pedida, ordenada por inicio, e total de registros que atendem ao filtro
+  findPage(filter: AppointmentFilter): Promise<[Appointment[], number]>;
   // Grava o novo status so se o atual ainda for from; false se outra requisicao mudou antes
   updateStatus(id: number, from: AppointmentStatus, to: AppointmentStatus): Promise<boolean>;
   // Executa work numa transacao que segura o lock da linha do medico ate o fim:

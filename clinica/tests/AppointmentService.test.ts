@@ -54,6 +54,7 @@ describe('AppointmentService', () => {
     appointmentRepository = {
       withDoctorLock: jest.fn((_doctorId, work) => work(tx)),
       findById: jest.fn(),
+      findPage: jest.fn().mockResolvedValue([[], 0]),
       updateStatus: jest.fn().mockResolvedValue(true),
     } as jest.Mocked<IAppointmentRepository>;
     workScheduleRepository = {
@@ -321,6 +322,61 @@ describe('AppointmentService', () => {
       await expect(changeStatus(AppointmentStatus.CANCELLED, admin)).rejects.toMatchObject({
         code: 'TRANSICAO_INVALIDA',
       });
+    });
+  });
+
+  describe('list', () => {
+    const page = { page: 1, pageSize: 20 };
+
+    it('medico sem admin tem o doctorId forcado para o dele', async () => {
+      doctorService.findByUserId.mockResolvedValue({ id: 3 } as Doctor);
+
+      await appointmentService.list({ ...page, doctorId: 4 }, { id: 7, roles: [Role.DOCTOR] });
+
+      expect(doctorService.findByUserId).toHaveBeenCalledWith(7);
+      expect(appointmentRepository.findPage).toHaveBeenCalledWith(
+        expect.objectContaining({ doctorId: 3 }),
+      );
+    });
+
+    it('admin e secretary filtram pelo doctorId pedido', async () => {
+      await appointmentService.list({ ...page, doctorId: 4 }, { id: 1, roles: [Role.ADMIN] });
+      await appointmentService.list({ ...page }, { id: 2, roles: [Role.SECRETARY] });
+
+      expect(appointmentRepository.findPage).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ doctorId: 4 }),
+      );
+      expect(appointmentRepository.findPage).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ doctorId: undefined }),
+      );
+      expect(doctorService.findByUserId).not.toHaveBeenCalled();
+    });
+
+    it('converte from e to em dias locais inteiros, com o fim exclusivo', async () => {
+      await appointmentService.list(
+        { ...page, from: '2026-10-12', to: '2026-10-16', status: AppointmentStatus.SCHEDULED },
+        { id: 1, roles: [Role.ADMIN] },
+      );
+
+      expect(appointmentRepository.findPage).toHaveBeenCalledWith({
+        ...page,
+        doctorId: undefined,
+        patientId: undefined,
+        status: AppointmentStatus.SCHEDULED,
+        startsFrom: new Date('2026-10-12T03:00:00Z'),
+        startsBefore: new Date('2026-10-17T03:00:00Z'),
+      });
+    });
+
+    it('recusa from posterior a to', async () => {
+      await expect(
+        appointmentService.list(
+          { ...page, from: '2026-10-16', to: '2026-10-12' },
+          { id: 1, roles: [Role.ADMIN] },
+        ),
+      ).rejects.toMatchObject({ code: 'DADOS_INVALIDOS' });
     });
   });
 });

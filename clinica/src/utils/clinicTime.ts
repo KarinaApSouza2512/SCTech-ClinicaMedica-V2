@@ -91,3 +91,9 @@ export function clinicDayStart(day: string): Date {
 
   return new Date(Math.min(...candidates));
 }
+
+// 'YYYY-MM-DD' do dia seguinte, pelo calendario (sem fuso)
+export function nextDay(day: string): string {
+  const [year, month, date] = day.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, date + 1)).toISOString().slice(0, 10);
+}

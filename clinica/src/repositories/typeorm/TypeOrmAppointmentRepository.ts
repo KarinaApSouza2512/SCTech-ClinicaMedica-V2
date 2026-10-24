@@ -4,7 +4,9 @@ import { Appointment } from '../../entities/Appointment';
 import { Doctor } from '../../entities/Doctor';
 import { Patient } from '../../entities/Patient';
 import { AppointmentStatus } from '../../enums/AppointmentStatus';
+import { pageOffset } from '../../utils/pagination';
 import {
+  AppointmentFilter,
   IAppointmentRepository,
   IAppointmentTransaction,
   NewAppointmentData,
@@ -57,6 +59,35 @@ export class TypeOrmAppointmentRepository implements IAppointmentRepository {
 
   findById(id: number): Promise<Appointment | null> {
     return this.dataSource.getRepository(Appointment).findOne({ where: { id } });
+  }
+
+  findPage(filter: AppointmentFilter): Promise<[Appointment[], number]> {
+    const query = this.dataSource
+      .getRepository(Appointment)
+      .createQueryBuilder('appointment')
+      .orderBy('appointment.startsAt', 'ASC')
+      .addOrderBy('appointment.id', 'ASC')
+      .skip(pageOffset(filter))
+      .take(filter.pageSize);
+
+    // Cada filtro so entra quando informado, sempre com parametro
+    if (filter.doctorId !== undefined) {
+      query.andWhere('appointment.doctorId = :doctorId', { doctorId: filter.doctorId });
+    }
+    if (filter.patientId !== undefined) {
+      query.andWhere('appointment.patientId = :patientId', { patientId: filter.patientId });
+    }
+    if (filter.status !== undefined) {
+      query.andWhere('appointment.status = :status', { status: filter.status });
+    }
+    if (filter.startsFrom !== undefined) {
+      query.andWhere('appointment.startsAt >= :startsFrom', { startsFrom: filter.startsFrom });
+    }
+    if (filter.startsBefore !== undefined) {
+      query.andWhere('appointment.startsAt < :startsBefore', { startsBefore: filter.startsBefore });
+    }
+
+    return query.getManyAndCount();
   }
 
   async updateStatus(id: number, from: AppointmentStatus, to: AppointmentStatus): Promise<boolean> {
