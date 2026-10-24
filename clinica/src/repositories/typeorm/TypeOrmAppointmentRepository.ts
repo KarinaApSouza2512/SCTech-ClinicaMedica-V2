@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { Appointment } from '../../entities/Appointment';
 import { Doctor } from '../../entities/Doctor';
+import { Patient } from '../../entities/Patient';
 import { AppointmentStatus } from '../../enums/AppointmentStatus';
 import {
   IAppointmentRepository,
@@ -14,6 +15,15 @@ type OverlapColumn = 'doctorId' | 'patientId';
 // Usa somente o manager recebido: fora dele a consulta sairia da transacao
 class TypeOrmAppointmentTransaction implements IAppointmentTransaction {
   constructor(private readonly manager: EntityManager) {}
+
+  async lockPatient(patientId: number): Promise<void> {
+    await this.manager
+      .getRepository(Patient)
+      .createQueryBuilder('patient')
+      .setLock('pessimistic_write')
+      .where('patient.id = :patientId', { patientId })
+      .getOne();
+  }
 
   hasDoctorOverlap(doctorId: number, start: Date, end: Date): Promise<boolean> {
     return this.hasOverlap('doctorId', doctorId, start, end);

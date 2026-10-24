@@ -48,6 +48,11 @@ export class AppointmentService {
 
     // 5, 6 e a gravacao sob o lock do medico: duas requisicoes simultaneas nao gravam as duas
     return this.appointmentRepository.withDoctorLock(input.doctorId, async (tx) => {
+      // O paciente tambem e travado, senao dois medicos o agendariam no mesmo horario.
+      // A ordem e sempre medico e depois paciente, entao duas transacoes nunca esperam
+      // uma pela outra em ciclo (sem deadlock).
+      await tx.lockPatient(input.patientId);
+
       // 5. medico livre no periodo (409)
       if (await tx.hasDoctorOverlap(input.doctorId, startsAt, endsAt)) {
         throw new DomainError('HORARIO_INDISPONIVEL', 'Medico ja tem consulta nesse horario');

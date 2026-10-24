@@ -10,6 +10,8 @@ export interface NewAppointmentData {
 // Operacoes disponiveis dentro da transacao de agendamento.
 // "Ativo" e todo agendamento que nao esta cancelado.
 export interface IAppointmentTransaction {
+  // Trava a linha do paciente ate o fim da transacao (sempre depois do lock do medico)
+  lockPatient(patientId: number): Promise<void>;
   hasDoctorOverlap(doctorId: number, start: Date, end: Date): Promise<boolean>;
   hasPatientOverlap(patientId: number, start: Date, end: Date): Promise<boolean>;
   create(data: NewAppointmentData): Promise<Appointment>;

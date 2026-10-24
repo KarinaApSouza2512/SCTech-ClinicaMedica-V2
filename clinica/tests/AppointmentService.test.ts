@@ -43,6 +43,7 @@ describe('AppointmentService', () => {
 
   beforeEach(() => {
     tx = {
+      lockPatient: jest.fn().mockResolvedValue(undefined),
       hasDoctorOverlap: jest.fn().mockResolvedValue(false),
       hasPatientOverlap: jest.fn().mockResolvedValue(false),
       create: jest.fn((data: NewAppointmentData) => Promise.resolve(persisted(data))),
@@ -185,6 +186,15 @@ describe('AppointmentService', () => {
       });
     });
 
+    it('trava o paciente antes de verificar os conflitos', async () => {
+      await create();
+
+      expect(tx.lockPatient).toHaveBeenCalledWith(10);
+      const lockOrder = tx.lockPatient.mock.invocationCallOrder[0];
+      expect(lockOrder).toBeLessThan(tx.hasDoctorOverlap.mock.invocationCallOrder[0]);
+      expect(lockOrder).toBeLessThan(tx.hasPatientOverlap.mock.invocationCallOrder[0]);
+    });
+
     it('nao consulta o paciente nem grava quando o medico ja esta ocupado', async () => {
       tx.hasDoctorOverlap.mockResolvedValue(true);
 
@@ -212,6 +222,7 @@ describe('AppointmentService', () => {
 
       await create();
 
+      expect(tx.lockPatient).not.toHaveBeenCalled();
       expect(tx.hasDoctorOverlap).not.toHaveBeenCalled();
       expect(tx.hasPatientOverlap).not.toHaveBeenCalled();
       expect(tx.create).not.toHaveBeenCalled();
