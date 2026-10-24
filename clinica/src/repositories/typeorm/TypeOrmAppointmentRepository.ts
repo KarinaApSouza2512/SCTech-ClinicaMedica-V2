@@ -2,8 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { Appointment } from '../../entities/Appointment';
 import { Doctor } from '../../entities/Doctor';
+import { Patient } from '../../entities/Patient';
 import { AppointmentStatus } from '../../enums/AppointmentStatus';
+import { pageOffset } from '../../utils/pagination';
 import {
+  AppointmentFilter,
   IAppointmentRepository,
   IAppointmentTransaction,
   NewAppointmentData,
@@ -14,6 +17,15 @@ type OverlapColumn = 'doctorId' | 'patientId';
 // Usa somente o manager recebido: fora dele a consulta sairia da transacao
 class TypeOrmAppointmentTransaction implements IAppointmentTransaction {
   constructor(private readonly manager: EntityManager) {}
+
+  async lockPatient(patientId: number): Promise<void> {
+    await this.manager
+      .getRepository(Patient)
+      .createQueryBuilder('patient')
+      .setLock('pessimistic_write')
+      .where('patient.id = :patientId', { patientId })
+      .getOne();
+  }
 
   hasDoctorOverlap(doctorId: number, start: Date, end: Date): Promise<boolean> {
     return this.hasOverlap('doctorId', doctorId, start, end);
@@ -44,6 +56,60 @@ class TypeOrmAppointmentTransaction implements IAppointmentTransaction {
 @Injectable()
 export class TypeOrmAppointmentRepository implements IAppointmentRepository {
   constructor(private readonly dataSource: DataSource) {}
+
+  findById(id: number): Promise<Appointment | null> {
+    return this.dataSource.getRepository(Appointment).findOne({ where: { id } });
+  }
+
+  findActiveByDoctorBetween(doctorId: number, start: Date, end: Date): Promise<Appointment[]> {
+    return this.dataSource
+      .getRepository(Appointment)
+      .createQueryBuilder('appointment')
+      .where('appointment.doctorId = :doctorId', { doctorId })
+      .andWhere('appointment.status <> :cancelled', { cancelled: AppointmentStatus.CANCELLED })
+      .andWhere('appointment.startsAt < :end', { end })
+      .andWhere('appointment.endsAt > :start', { start })
+      .orderBy('appointment.startsAt', 'ASC')
+      .addOrderBy('appointment.id', 'ASC')
+      .getMany();
+  }
+
+  findPage(filter: AppointmentFilter): Promise<[Appointment[], number]> {
+    const query = this.dataSource
+      .getRepository(Appointment)
+      .createQueryBuilder('appointment')
+      .orderBy('appointment.startsAt', 'ASC')
+      .addOrderBy('appointment.id', 'ASC')
+      .skip(pageOffset(filter))
+      .take(filter.pageSize);
+
+    // Cada filtro so entra quando informado, sempre com parametro
+    if (filter.doctorId !== undefined) {
+      query.andWhere('appointment.doctorId = :doctorId', { doctorId: filter.doctorId });
+    }
+    if (filter.patientId !== undefined) {
+      query.andWhere('appointment.patientId = :patientId', { patientId: filter.patientId });
+    }
+    if (filter.status !== undefined) {
+      query.andWhere('appointment.status = :status', { status: filter.status });
+    }
+    if (filter.startsFrom !== undefined) {
+      query.andWhere('appointment.startsAt >= :startsFrom', { startsFrom: filter.startsFrom });
+    }
+    if (filter.startsBefore !== undefined) {
+      query.andWhere('appointment.startsAt < :startsBefore', { startsBefore: filter.startsBefore });
+    }
+
+    return query.getManyAndCount();
+  }
+
+  async updateStatus(id: number, from: AppointmentStatus, to: AppointmentStatus): Promise<boolean> {
+    const result = await this.dataSource
+      .getRepository(Appointment)
+      .update({ id, status: from }, { status: to });
+
+    return result.affected === 1;
+  }
 
   withDoctorLock<T>(
     doctorId: number,

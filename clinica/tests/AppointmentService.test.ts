@@ -1,6 +1,8 @@
 import { Appointment } from '../src/entities/Appointment';
 import { WorkShift } from '../src/entities/WorkShift';
+import { Doctor } from '../src/entities/Doctor';
 import { AppointmentStatus } from '../src/enums/AppointmentStatus';
+import { Role } from '../src/enums/Role';
 import { DomainError } from '../src/errors/DomainError';
 import {
   IAppointmentRepository,
@@ -43,6 +45,7 @@ describe('AppointmentService', () => {
 
   beforeEach(() => {
     tx = {
+      lockPatient: jest.fn().mockResolvedValue(undefined),
       hasDoctorOverlap: jest.fn().mockResolvedValue(false),
       hasPatientOverlap: jest.fn().mockResolvedValue(false),
       create: jest.fn((data: NewAppointmentData) => Promise.resolve(persisted(data))),
@@ -50,6 +53,10 @@ describe('AppointmentService', () => {
     // Duble do lock: so executa o callback com as operacoes acima
     appointmentRepository = {
       withDoctorLock: jest.fn((_doctorId, work) => work(tx)),
+      findById: jest.fn(),
+      findPage: jest.fn().mockResolvedValue([[], 0]),
+      findActiveByDoctorBetween: jest.fn().mockResolvedValue([]),
+      updateStatus: jest.fn().mockResolvedValue(true),
     } as jest.Mocked<IAppointmentRepository>;
     workScheduleRepository = {
       // Terca: manha com consultas de 30 min e tarde com consultas de 20 min
@@ -61,7 +68,10 @@ describe('AppointmentService', () => {
         ]),
       replaceForDoctor: jest.fn(),
     };
-    doctorService = { findById: jest.fn() } as unknown as jest.Mocked<DoctorService>;
+    doctorService = {
+      findById: jest.fn(),
+      findByUserId: jest.fn().mockResolvedValue(null),
+    } as unknown as jest.Mocked<DoctorService>;
     patientService = { findById: jest.fn() } as unknown as jest.Mocked<PatientService>;
 
     appointmentService = new AppointmentService(
@@ -185,6 +195,15 @@ describe('AppointmentService', () => {
       });
     });
 
+    it('trava o paciente antes de verificar os conflitos', async () => {
+      await create();
+
+      expect(tx.lockPatient).toHaveBeenCalledWith(10);
+      const lockOrder = tx.lockPatient.mock.invocationCallOrder[0];
+      expect(lockOrder).toBeLessThan(tx.hasDoctorOverlap.mock.invocationCallOrder[0]);
+      expect(lockOrder).toBeLessThan(tx.hasPatientOverlap.mock.invocationCallOrder[0]);
+    });
+
     it('nao consulta o paciente nem grava quando o medico ja esta ocupado', async () => {
       tx.hasDoctorOverlap.mockResolvedValue(true);
 
@@ -212,6 +231,7 @@ describe('AppointmentService', () => {
 
       await create();
 
+      expect(tx.lockPatient).not.toHaveBeenCalled();
       expect(tx.hasDoctorOverlap).not.toHaveBeenCalled();
       expect(tx.hasPatientOverlap).not.toHaveBeenCalled();
       expect(tx.create).not.toHaveBeenCalled();
@@ -222,6 +242,373 @@ describe('AppointmentService', () => {
       tx.create.mockRejectedValue(failure);
 
       await expect(create()).rejects.toBe(failure);
+    });
+  });
+
+  describe('changeStatus', () => {
+    // Medico 3 (usuario 7) e o medico da consulta; medico 4 (usuario 8) e outro
+    const admin = { id: 1, roles: [Role.ADMIN] };
+    const secretary = { id: 2, roles: [Role.SECRETARY] };
+    const ownDoctor = { id: 7, roles: [Role.DOCTOR] };
+    const otherDoctor = { id: 8, roles: [Role.DOCTOR] };
+
+    const doctorsByUser: Record<number, Doctor> = {
+      7: { id: 3 } as Doctor,
+      8: { id: 4 } as Doctor,
+    };
+
+    function stored(status: AppointmentStatus): Appointment {
+      const appointment = persisted({
+        doctorId: 3,
+        patientId: 10,
+        startsAt: TUESDAY_08_00,
+        endsAt: new Date('2026-10-13T11:30:00Z'),
+      });
+      return { ...appointment, status } as Appointment;
+    }
+
+    function changeStatus(to: AppointmentStatus, requester: { id: number; roles: Role[] }) {
+      return appointmentService.changeStatus(41, to, requester);
+    }
+
+    beforeEach(() => {
+      doctorService.findByUserId.mockImplementation((userId: number) =>
+        Promise.resolve(doctorsByUser[userId] ?? null),
+      );
+    });
+
+    it('o medico da consulta inicia o atendimento', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.SCHEDULED));
+
+      const result = await changeStatus(AppointmentStatus.IN_PROGRESS, ownDoctor);
+
+      expect(appointmentRepository.updateStatus).toHaveBeenCalledWith(
+        41,
+        AppointmentStatus.SCHEDULED,
+        AppointmentStatus.IN_PROGRESS,
+      );
+      expect(result.status).toBe(AppointmentStatus.IN_PROGRESS);
+    });
+
+    it('admin inicia e conclui consulta de qualquer medico', async () => {
+      appointmentRepository.findById.mockResolvedValueOnce(stored(AppointmentStatus.SCHEDULED));
+      await expect(changeStatus(AppointmentStatus.IN_PROGRESS, admin)).resolves.toMatchObject({
+        status: AppointmentStatus.IN_PROGRESS,
+      });
+
+      appointmentRepository.findById.mockResolvedValueOnce(stored(AppointmentStatus.IN_PROGRESS));
+      await expect(changeStatus(AppointmentStatus.DONE, admin)).resolves.toMatchObject({
+        status: AppointmentStatus.DONE,
+      });
+    });
+
+    it('secretary cancela consulta agendada', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.SCHEDULED));
+
+      await expect(changeStatus(AppointmentStatus.CANCELLED, secretary)).resolves.toMatchObject({
+        status: AppointmentStatus.CANCELLED,
+      });
+      expect(doctorService.findByUserId).not.toHaveBeenCalled();
+    });
+
+    it('secretary nao cancela consulta em andamento (403)', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.IN_PROGRESS));
+
+      await expect(changeStatus(AppointmentStatus.CANCELLED, secretary)).rejects.toMatchObject({
+        code: 'ACESSO_NEGADO',
+      });
+    });
+
+    it('secretary nao inicia atendimento (403)', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.SCHEDULED));
+
+      await expect(changeStatus(AppointmentStatus.IN_PROGRESS, secretary)).rejects.toMatchObject({
+        code: 'ACESSO_NEGADO',
+      });
+    });
+
+    it('medico da consulta cancela em andamento e conclui', async () => {
+      appointmentRepository.findById.mockResolvedValueOnce(stored(AppointmentStatus.IN_PROGRESS));
+      await expect(changeStatus(AppointmentStatus.CANCELLED, ownDoctor)).resolves.toBeDefined();
+
+      appointmentRepository.findById.mockResolvedValueOnce(stored(AppointmentStatus.IN_PROGRESS));
+      await expect(changeStatus(AppointmentStatus.DONE, ownDoctor)).resolves.toBeDefined();
+    });
+
+    it('usuario com perfil doctor sem cadastro de medico nao e dono da consulta', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.SCHEDULED));
+
+      await expect(
+        changeStatus(AppointmentStatus.IN_PROGRESS, { id: 99, roles: [Role.DOCTOR] }),
+      ).rejects.toMatchObject({ code: 'ACESSO_NEGADO' });
+    });
+
+    it('cancelled nao volta para nenhum status (422)', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.CANCELLED));
+
+      for (const to of Object.values(AppointmentStatus)) {
+        await expect(changeStatus(to, admin)).rejects.toMatchObject({ code: 'TRANSICAO_INVALIDA' });
+      }
+      expect(appointmentRepository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('lanca 404 quando o agendamento nao existe', async () => {
+      appointmentRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        appointmentService.changeStatus(99, AppointmentStatus.CANCELLED, admin),
+      ).rejects.toMatchObject({ code: 'RECURSO_NAO_ENCONTRADO' });
+    });
+
+    it('lanca TRANSICAO_INVALIDA fora da tabela, antes de checar o perfil', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.DONE));
+
+      await expect(changeStatus(AppointmentStatus.CANCELLED, secretary)).rejects.toMatchObject({
+        code: 'TRANSICAO_INVALIDA',
+      });
+      expect(appointmentRepository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('lanca ACESSO_NEGADO para medico de outra consulta', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.SCHEDULED));
+
+      await expect(changeStatus(AppointmentStatus.IN_PROGRESS, otherDoctor)).rejects.toMatchObject({
+        code: 'ACESSO_NEGADO',
+      });
+      expect(appointmentRepository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('lanca TRANSICAO_INVALIDA quando outra requisicao mudou o status antes', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.SCHEDULED));
+      appointmentRepository.updateStatus.mockResolvedValue(false);
+
+      await expect(changeStatus(AppointmentStatus.CANCELLED, admin)).rejects.toMatchObject({
+        code: 'TRANSICAO_INVALIDA',
+      });
+    });
+  });
+
+  // Agendamento qualquer, para os testes que so repassam o que o repositorio devolve
+  function sample(): Appointment {
+    return persisted({
+      doctorId: 3,
+      patientId: 10,
+      startsAt: TUESDAY_08_00,
+      endsAt: new Date('2026-10-13T11:30:00Z'),
+    });
+  }
+
+  describe('list', () => {
+    const page = { page: 1, pageSize: 20 };
+    const admin = { id: 1, roles: [Role.ADMIN] };
+
+    it('medico sem admin tem o doctorId forcado para o dele', async () => {
+      doctorService.findByUserId.mockResolvedValue({ id: 3 } as Doctor);
+
+      await appointmentService.list({ ...page, doctorId: 4 }, { id: 7, roles: [Role.DOCTOR] });
+
+      expect(doctorService.findByUserId).toHaveBeenCalledWith(7);
+      expect(appointmentRepository.findPage).toHaveBeenCalledWith(
+        expect.objectContaining({ doctorId: 3 }),
+      );
+    });
+
+    it('medico sem cadastro de medico recebe lista vazia, sem consultar o banco', async () => {
+      const result = await appointmentService.list(
+        { ...page, doctorId: 4 },
+        { id: 99, roles: [Role.DOCTOR] },
+      );
+
+      expect(result.data).toEqual([]);
+      expect(result.meta).toEqual({ total: 0, page: 1, pageSize: 20, totalPages: 0 });
+      expect(appointmentRepository.findPage).not.toHaveBeenCalled();
+    });
+
+    it('medico que tambem e admin nao tem o filtro forcado', async () => {
+      const doctorAdmin = { id: 7, roles: [Role.DOCTOR, Role.ADMIN] };
+      await appointmentService.list({ ...page, doctorId: 4 }, doctorAdmin);
+
+      expect(appointmentRepository.findPage).toHaveBeenCalledWith(
+        expect.objectContaining({ doctorId: 4 }),
+      );
+      expect(doctorService.findByUserId).not.toHaveBeenCalled();
+    });
+
+    it('devolve a pagina com a meta calculada a partir do total', async () => {
+      const items = [sample()];
+      appointmentRepository.findPage.mockResolvedValue([items, 41]);
+
+      const result = await appointmentService.list({ page: 3, pageSize: 20 }, admin);
+
+      expect(result.data).toBe(items);
+      expect(result.meta).toEqual({ total: 41, page: 3, pageSize: 20, totalPages: 3 });
+    });
+
+    it('aceita so from ou so to', async () => {
+      await appointmentService.list({ ...page, from: '2026-10-12' }, admin);
+      await appointmentService.list({ ...page, to: '2026-10-12' }, admin);
+
+      expect(appointmentRepository.findPage).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          startsFrom: new Date('2026-10-12T03:00:00Z'),
+          startsBefore: undefined,
+        }),
+      );
+      expect(appointmentRepository.findPage).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          startsFrom: undefined,
+          startsBefore: new Date('2026-10-13T03:00:00Z'),
+        }),
+      );
+    });
+
+    it('admin e secretary filtram pelo doctorId pedido', async () => {
+      await appointmentService.list({ ...page, doctorId: 4 }, { id: 1, roles: [Role.ADMIN] });
+      await appointmentService.list({ ...page }, { id: 2, roles: [Role.SECRETARY] });
+
+      expect(appointmentRepository.findPage).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ doctorId: 4 }),
+      );
+      expect(appointmentRepository.findPage).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ doctorId: undefined }),
+      );
+      expect(doctorService.findByUserId).not.toHaveBeenCalled();
+    });
+
+    it('converte from e to em dias locais inteiros, com o fim exclusivo', async () => {
+      await appointmentService.list(
+        { ...page, from: '2026-10-12', to: '2026-10-16', status: AppointmentStatus.SCHEDULED },
+        { id: 1, roles: [Role.ADMIN] },
+      );
+
+      expect(appointmentRepository.findPage).toHaveBeenCalledWith({
+        ...page,
+        doctorId: undefined,
+        patientId: undefined,
+        status: AppointmentStatus.SCHEDULED,
+        startsFrom: new Date('2026-10-12T03:00:00Z'),
+        startsBefore: new Date('2026-10-17T03:00:00Z'),
+      });
+    });
+
+    it('recusa from posterior a to', async () => {
+      await expect(
+        appointmentService.list(
+          { ...page, from: '2026-10-16', to: '2026-10-12' },
+          { id: 1, roles: [Role.ADMIN] },
+        ),
+      ).rejects.toMatchObject({ code: 'DADOS_INVALIDOS' });
+    });
+  });
+
+  describe('findById', () => {
+    const appointment = persisted({
+      doctorId: 3,
+      patientId: 10,
+      startsAt: TUESDAY_08_00,
+      endsAt: new Date('2026-10-13T11:30:00Z'),
+    });
+
+    beforeEach(() => {
+      appointmentRepository.findById.mockResolvedValue(appointment);
+    });
+
+    it('medico da consulta, admin e secretary consultam', async () => {
+      doctorService.findByUserId.mockResolvedValue({ id: 3 } as Doctor);
+
+      for (const roles of [[Role.DOCTOR], [Role.ADMIN], [Role.SECRETARY]]) {
+        await expect(appointmentService.findById(41, { id: 7, roles })).resolves.toBe(appointment);
+      }
+    });
+
+    it('lanca ACESSO_NEGADO para medico de outra consulta', async () => {
+      doctorService.findByUserId.mockResolvedValue({ id: 4 } as Doctor);
+
+      await expect(
+        appointmentService.findById(41, { id: 8, roles: [Role.DOCTOR] }),
+      ).rejects.toMatchObject({ code: 'ACESSO_NEGADO' });
+    });
+
+    it('lanca 404 antes de checar a posse', async () => {
+      appointmentRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        appointmentService.findById(99, { id: 8, roles: [Role.DOCTOR] }),
+      ).rejects.toMatchObject({ code: 'RECURSO_NAO_ENCONTRADO' });
+      expect(doctorService.findByUserId).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('calendar', () => {
+    it('busca a escala e os agendamentos ativos do periodo local inteiro', async () => {
+      const result = await appointmentService.calendar(3, '2026-10-12', '2026-10-16');
+
+      expect(doctorService.findById).toHaveBeenCalledWith(3);
+      // 12/10 00:00 local ate o fim de 16/10 local (inicio de 17/10)
+      expect(appointmentRepository.findActiveByDoctorBetween).toHaveBeenCalledWith(
+        3,
+        new Date('2026-10-12T03:00:00Z'),
+        new Date('2026-10-17T03:00:00Z'),
+      );
+      expect(result.shifts).toHaveLength(2);
+      expect(result.appointments).toEqual([]);
+    });
+
+    it('devolve os agendamentos ativos que o repositorio encontrou', async () => {
+      const active = [sample()];
+      appointmentRepository.findActiveByDoctorBetween.mockResolvedValue(active);
+
+      await expect(appointmentService.calendar(3, '2026-10-13', '2026-10-13')).resolves.toEqual({
+        shifts: expect.any(Array),
+        appointments: active,
+      });
+    });
+
+    it('aceita exatamente 31 dias, contando as duas pontas', async () => {
+      await appointmentService.calendar(3, '2026-10-01', '2026-10-31');
+
+      expect(appointmentRepository.findActiveByDoctorBetween).toHaveBeenCalledWith(
+        3,
+        new Date('2026-10-01T03:00:00Z'),
+        new Date('2026-11-01T03:00:00Z'),
+      );
+    });
+
+    it('usa o fuso da clinica nos limites, inclusive em virada de horario de verao', async () => {
+      // 04/11/2018 comecou as 01:00 local (03:00Z); 05/11 comecou as 00:00 local (02:00Z)
+      await appointmentService.calendar(3, '2018-11-04', '2018-11-04');
+
+      expect(appointmentRepository.findActiveByDoctorBetween).toHaveBeenCalledWith(
+        3,
+        new Date('2018-11-04T03:00:00Z'),
+        new Date('2018-11-05T02:00:00Z'),
+      );
+    });
+
+    it('recusa from posterior a to', async () => {
+      const result = appointmentService.calendar(3, '2026-10-16', '2026-10-12');
+
+      await expect(result).rejects.toMatchObject({ code: 'DADOS_INVALIDOS' });
+    });
+
+    it('recusa periodo com mais de 31 dias', async () => {
+      const result = appointmentService.calendar(3, '2026-10-01', '2026-11-01');
+
+      await expect(result).rejects.toMatchObject({ code: 'DADOS_INVALIDOS' });
+      expect(doctorService.findById).not.toHaveBeenCalled();
+    });
+
+    it('propaga o 404 do medico inexistente', async () => {
+      doctorService.findById.mockRejectedValue(notFound('Medico'));
+
+      const result = appointmentService.calendar(99, '2026-10-12', '2026-10-16');
+
+      await expect(result).rejects.toMatchObject({ code: 'RECURSO_NAO_ENCONTRADO' });
+      expect(appointmentRepository.findActiveByDoctorBetween).not.toHaveBeenCalled();
     });
   });
 });

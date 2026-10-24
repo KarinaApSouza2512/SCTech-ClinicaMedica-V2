@@ -91,3 +91,24 @@ export function clinicDayStart(day: string): Date {
 
   return new Date(Math.min(...candidates));
 }
+
+// 'YYYY-MM-DD' do dia seguinte, pelo calendario (sem fuso)
+export function nextDay(day: string): string {
+  const [year, month, date] = day.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, date + 1)).toISOString().slice(0, 10);
+}
+
+// Dias locais from..to inteiros e inclusivos -> [inicio, fim) em UTC
+export function clinicDayRange(from: string, to: string): { start: Date; end: Date } {
+  return { start: clinicDayStart(from), end: clinicDayStart(nextDay(to)) };
+}
+
+// Quantidade de dias de from ate to, contando os dois
+export function countDays(from: string, to: string): number {
+  const toUtc = (day: string) => {
+    const [year, month, date] = day.split('-').map(Number);
+    return Date.UTC(year, month - 1, date);
+  };
+
+  return Math.round((toUtc(to) - toUtc(from)) / (24 * 60 * MINUTE_MS)) + 1;
+}

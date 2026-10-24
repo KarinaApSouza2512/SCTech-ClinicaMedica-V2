@@ -1,4 +1,10 @@
-import { clinicDayStart, toClinicTime } from '../src/utils/clinicTime';
+import {
+  clinicDayRange,
+  clinicDayStart,
+  countDays,
+  nextDay,
+  toClinicTime,
+} from '../src/utils/clinicTime';
 
 describe('clinicTime', () => {
   describe('toClinicTime', () => {
@@ -63,6 +69,33 @@ describe('clinicTime', () => {
         weekDay: 0,
         minutesOfDay: 0,
       });
+    });
+  });
+
+  describe('nextDay, clinicDayRange e countDays', () => {
+    it.each([
+      ['2026-10-13', '2026-10-14'],
+      ['2026-10-31', '2026-11-01'],
+      ['2026-12-31', '2027-01-01'],
+      ['2028-02-28', '2028-02-29'],
+    ])('o dia seguinte a %s e %s', (day, expected) => {
+      expect(nextDay(day)).toBe(expected);
+    });
+
+    it('cobre os dias locais inteiros, com o fim exclusivo', () => {
+      expect(clinicDayRange('2026-10-12', '2026-10-16')).toEqual({
+        start: new Date('2026-10-12T03:00:00Z'),
+        end: new Date('2026-10-17T03:00:00Z'),
+      });
+    });
+
+    it.each([
+      ['2026-10-13', '2026-10-13', 1],
+      ['2026-10-01', '2026-10-31', 31],
+      ['2026-10-01', '2026-11-01', 32],
+      ['2026-12-31', '2027-01-01', 2],
+    ])('de %s a %s sao %i dias', (from, to, days) => {
+      expect(countDays(from, to)).toBe(days);
     });
   });
 });
