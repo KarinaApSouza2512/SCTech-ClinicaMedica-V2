@@ -46,7 +46,8 @@ export class AppointmentService {
     const startsAt = input.startsAt;
     const endsAt = new Date(startsAt.getTime() + shift.slotDurationMinutes * MINUTE_MS);
 
-    return this.appointmentRepository.inTransaction(async (tx) => {
+    // 5, 6 e a gravacao sob o lock do medico: duas requisicoes simultaneas nao gravam as duas
+    return this.appointmentRepository.withDoctorLock(input.doctorId, async (tx) => {
       // 5. medico livre no periodo (409)
       if (await tx.hasDoctorOverlap(input.doctorId, startsAt, endsAt)) {
         throw new DomainError('HORARIO_INDISPONIVEL', 'Medico ja tem consulta nesse horario');

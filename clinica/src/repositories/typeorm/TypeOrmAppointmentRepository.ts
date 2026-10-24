@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { Appointment } from '../../entities/Appointment';
+import { Doctor } from '../../entities/Doctor';
 import { AppointmentStatus } from '../../enums/AppointmentStatus';
 import {
   IAppointmentRepository,
@@ -44,9 +45,22 @@ class TypeOrmAppointmentTransaction implements IAppointmentTransaction {
 export class TypeOrmAppointmentRepository implements IAppointmentRepository {
   constructor(private readonly dataSource: DataSource) {}
 
-  inTransaction<T>(work: (tx: IAppointmentTransaction) => Promise<T>): Promise<T> {
-    return this.dataSource.transaction((manager) =>
-      work(new TypeOrmAppointmentTransaction(manager)),
-    );
+  withDoctorLock<T>(
+    doctorId: number,
+    work: (tx: IAppointmentTransaction) => Promise<T>,
+  ): Promise<T> {
+    return this.dataSource.transaction(async (manager) => {
+      // Trava a linha do medico, e nao as consultas: FOR UPDATE so trava linhas que existem,
+      // e numa agenda vazia nao haveria consulta para travar. Com o medico travado, duas
+      // requisicoes para ele passam pela verificacao uma de cada vez.
+      await manager
+        .getRepository(Doctor)
+        .createQueryBuilder('doctor')
+        .setLock('pessimistic_write')
+        .where('doctor.id = :doctorId', { doctorId })
+        .getOne();
+
+      return work(new TypeOrmAppointmentTransaction(manager));
+    });
   }
 }

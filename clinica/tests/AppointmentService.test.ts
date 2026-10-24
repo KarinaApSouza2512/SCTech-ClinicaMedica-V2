@@ -47,9 +47,9 @@ describe('AppointmentService', () => {
       hasPatientOverlap: jest.fn().mockResolvedValue(false),
       create: jest.fn((data: NewAppointmentData) => Promise.resolve(persisted(data))),
     };
-    // Duble da transacao: so executa o callback com as operacoes acima
+    // Duble do lock: so executa o callback com as operacoes acima
     appointmentRepository = {
-      inTransaction: jest.fn((work) => work(tx)),
+      withDoctorLock: jest.fn((_doctorId, work) => work(tx)),
     } as jest.Mocked<IAppointmentRepository>;
     workScheduleRepository = {
       // Terca: manha com consultas de 30 min e tarde com consultas de 20 min
@@ -87,6 +87,13 @@ describe('AppointmentService', () => {
         endsAt: new Date('2026-10-13T11:30:00Z'),
       });
       expect(result.status).toBe(AppointmentStatus.SCHEDULED);
+    });
+
+    it('verifica conflitos e grava sob o lock do medico da consulta', async () => {
+      await create();
+
+      expect(appointmentRepository.withDoctorLock).toHaveBeenCalledTimes(1);
+      expect(appointmentRepository.withDoctorLock).toHaveBeenCalledWith(3, expect.any(Function));
     });
 
     it('usa a duracao do turno em que o horario cai', async () => {

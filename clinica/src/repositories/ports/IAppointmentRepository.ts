@@ -17,8 +17,12 @@ export interface IAppointmentTransaction {
 
 // Porta usada pelos services; os testes trocam por um duble
 export interface IAppointmentRepository {
-  // Verificacao e gravacao no mesmo work, dentro de uma unica transacao
-  inTransaction<T>(work: (tx: IAppointmentTransaction) => Promise<T>): Promise<T>;
+  // Executa work numa transacao que segura o lock da linha do medico ate o fim:
+  // outro agendamento do mesmo medico espera, e so verifica depois deste gravar
+  withDoctorLock<T>(
+    doctorId: number,
+    work: (tx: IAppointmentTransaction) => Promise<T>,
+  ): Promise<T>;
 }
 
 // Token de injecao: a interface nao existe em tempo de execucao
