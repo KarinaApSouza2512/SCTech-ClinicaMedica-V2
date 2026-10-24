@@ -45,8 +45,12 @@ jobs:
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
+          # ::error:: aparece nas anotacoes do job, sem precisar abrir o log
           if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
-            echo "Segredo RENDER_DEPLOY_HOOK_URL nao configurado" >&2
+            echo "::error::Segredo RENDER_DEPLOY_HOOK_URL nao configurado em Settings > Secrets and variables > Actions"
             exit 1
           fi
-          curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
+          if ! curl -fsS -o /dev/null -X POST "$RENDER_DEPLOY_HOOK_URL"; then
+            echo "::error::O Render recusou o deploy hook; confira se a URL do segredo RENDER_DEPLOY_HOOK_URL esta correta"
+            exit 1
+          fi
