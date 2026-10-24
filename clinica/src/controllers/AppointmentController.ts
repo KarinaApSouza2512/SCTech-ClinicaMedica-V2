@@ -1,6 +1,9 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { CurrentUser } from '../decorators/CurrentUser';
 import { Roles } from '../decorators/Roles';
 import { CreateAppointmentDto } from '../dto/CreateAppointmentDto';
+import { IdParamDto } from '../dto/IdParamDto';
+import { UpdateAppointmentStatusDto } from '../dto/UpdateAppointmentStatusDto';
 import { Role } from '../enums/Role';
 import { JwtAuthGuard } from '../guards/JwtAuthGuard';
 import { RolesGuard } from '../guards/RolesGuard';
@@ -21,6 +24,17 @@ export class AppointmentController {
       startsAt: new Date(body.startsAt),
     });
 
+    return toAppointmentResponse(appointment);
+  }
+
+  // Qualquer autenticado chega aqui; quem pode cada transicao e decidido no service
+  @Patch(':id/status')
+  async changeStatus(
+    @Param() params: IdParamDto,
+    @Body() body: UpdateAppointmentStatusDto,
+    @CurrentUser() user: Express.AuthenticatedUser,
+  ): Promise<AppointmentResponse> {
+    const appointment = await this.appointmentService.changeStatus(params.id, body.status, user);
     return toAppointmentResponse(appointment);
   }
 }

@@ -1,6 +1,8 @@
 import { Appointment } from '../src/entities/Appointment';
 import { WorkShift } from '../src/entities/WorkShift';
+import { Doctor } from '../src/entities/Doctor';
 import { AppointmentStatus } from '../src/enums/AppointmentStatus';
+import { Role } from '../src/enums/Role';
 import { DomainError } from '../src/errors/DomainError';
 import {
   IAppointmentRepository,
@@ -51,6 +53,8 @@ describe('AppointmentService', () => {
     // Duble do lock: so executa o callback com as operacoes acima
     appointmentRepository = {
       withDoctorLock: jest.fn((_doctorId, work) => work(tx)),
+      findById: jest.fn(),
+      updateStatus: jest.fn().mockResolvedValue(true),
     } as jest.Mocked<IAppointmentRepository>;
     workScheduleRepository = {
       // Terca: manha com consultas de 30 min e tarde com consultas de 20 min
@@ -62,7 +66,10 @@ describe('AppointmentService', () => {
         ]),
       replaceForDoctor: jest.fn(),
     };
-    doctorService = { findById: jest.fn() } as unknown as jest.Mocked<DoctorService>;
+    doctorService = {
+      findById: jest.fn(),
+      findByUserId: jest.fn().mockResolvedValue(null),
+    } as unknown as jest.Mocked<DoctorService>;
     patientService = { findById: jest.fn() } as unknown as jest.Mocked<PatientService>;
 
     appointmentService = new AppointmentService(
@@ -233,6 +240,87 @@ describe('AppointmentService', () => {
       tx.create.mockRejectedValue(failure);
 
       await expect(create()).rejects.toBe(failure);
+    });
+  });
+
+  describe('changeStatus', () => {
+    // Medico 3 (usuario 7) e o medico da consulta; medico 4 (usuario 8) e outro
+    const admin = { id: 1, roles: [Role.ADMIN] };
+    const secretary = { id: 2, roles: [Role.SECRETARY] };
+    const ownDoctor = { id: 7, roles: [Role.DOCTOR] };
+    const otherDoctor = { id: 8, roles: [Role.DOCTOR] };
+
+    const doctorsByUser: Record<number, Doctor> = {
+      7: { id: 3 } as Doctor,
+      8: { id: 4 } as Doctor,
+    };
+
+    function stored(status: AppointmentStatus): Appointment {
+      const appointment = persisted({
+        doctorId: 3,
+        patientId: 10,
+        startsAt: TUESDAY_08_00,
+        endsAt: new Date('2026-10-13T11:30:00Z'),
+      });
+      return { ...appointment, status } as Appointment;
+    }
+
+    function changeStatus(to: AppointmentStatus, requester: { id: number; roles: Role[] }) {
+      return appointmentService.changeStatus(41, to, requester);
+    }
+
+    beforeEach(() => {
+      doctorService.findByUserId.mockImplementation((userId: number) =>
+        Promise.resolve(doctorsByUser[userId] ?? null),
+      );
+    });
+
+    it('o medico da consulta inicia o atendimento', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.SCHEDULED));
+
+      const result = await changeStatus(AppointmentStatus.IN_PROGRESS, ownDoctor);
+
+      expect(appointmentRepository.updateStatus).toHaveBeenCalledWith(
+        41,
+        AppointmentStatus.SCHEDULED,
+        AppointmentStatus.IN_PROGRESS,
+      );
+      expect(result.status).toBe(AppointmentStatus.IN_PROGRESS);
+    });
+
+    it('lanca 404 quando o agendamento nao existe', async () => {
+      appointmentRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        appointmentService.changeStatus(99, AppointmentStatus.CANCELLED, admin),
+      ).rejects.toMatchObject({ code: 'RECURSO_NAO_ENCONTRADO' });
+    });
+
+    it('lanca TRANSICAO_INVALIDA fora da tabela, antes de checar o perfil', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.DONE));
+
+      await expect(changeStatus(AppointmentStatus.CANCELLED, secretary)).rejects.toMatchObject({
+        code: 'TRANSICAO_INVALIDA',
+      });
+      expect(appointmentRepository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('lanca ACESSO_NEGADO para medico de outra consulta', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.SCHEDULED));
+
+      await expect(changeStatus(AppointmentStatus.IN_PROGRESS, otherDoctor)).rejects.toMatchObject({
+        code: 'ACESSO_NEGADO',
+      });
+      expect(appointmentRepository.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('lanca TRANSICAO_INVALIDA quando outra requisicao mudou o status antes', async () => {
+      appointmentRepository.findById.mockResolvedValue(stored(AppointmentStatus.SCHEDULED));
+      appointmentRepository.updateStatus.mockResolvedValue(false);
+
+      await expect(changeStatus(AppointmentStatus.CANCELLED, admin)).rejects.toMatchObject({
+        code: 'TRANSICAO_INVALIDA',
+      });
     });
   });
 });

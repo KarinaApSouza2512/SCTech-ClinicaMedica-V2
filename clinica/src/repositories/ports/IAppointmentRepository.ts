@@ -1,4 +1,5 @@
 import { Appointment } from '../../entities/Appointment';
+import { AppointmentStatus } from '../../enums/AppointmentStatus';
 
 export interface NewAppointmentData {
   doctorId: number;
@@ -19,6 +20,9 @@ export interface IAppointmentTransaction {
 
 // Porta usada pelos services; os testes trocam por um duble
 export interface IAppointmentRepository {
+  findById(id: number): Promise<Appointment | null>;
+  // Grava o novo status so se o atual ainda for from; false se outra requisicao mudou antes
+  updateStatus(id: number, from: AppointmentStatus, to: AppointmentStatus): Promise<boolean>;
   // Executa work numa transacao que segura o lock da linha do medico ate o fim:
   // outro agendamento do mesmo medico espera, e so verifica depois deste gravar
   withDoctorLock<T>(

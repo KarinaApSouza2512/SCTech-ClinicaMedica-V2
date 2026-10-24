@@ -55,6 +55,18 @@ class TypeOrmAppointmentTransaction implements IAppointmentTransaction {
 export class TypeOrmAppointmentRepository implements IAppointmentRepository {
   constructor(private readonly dataSource: DataSource) {}
 
+  findById(id: number): Promise<Appointment | null> {
+    return this.dataSource.getRepository(Appointment).findOne({ where: { id } });
+  }
+
+  async updateStatus(id: number, from: AppointmentStatus, to: AppointmentStatus): Promise<boolean> {
+    const result = await this.dataSource
+      .getRepository(Appointment)
+      .update({ id, status: from }, { status: to });
+
+    return result.affected === 1;
+  }
+
   withDoctorLock<T>(
     doctorId: number,
     work: (tx: IAppointmentTransaction) => Promise<T>,
