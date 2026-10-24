@@ -1,12 +1,10 @@
 import 'dotenv/config';
 
-interface DatabaseConfig {
-  host: string;
-  port: number;
-  user: string;
-  password: string;
-  name: string;
-}
+// Conexao por URL unica (Neon, Render) ou por campos separados (Docker local)
+type DatabaseConnection =
+  { url: string } | { host: string; port: number; user: string; password: string; name: string };
+
+type DatabaseConfig = DatabaseConnection & { ssl: boolean };
 
 interface JwtConfig {
   secret: string;
@@ -43,6 +41,15 @@ function readRequired(key: string): string {
   return value;
 }
 
+function readBoolean(key: string, fallback: boolean): boolean {
+  const value = process.env[key];
+  if (value === undefined || value.trim() === '') {
+    return fallback;
+  }
+
+  return value.trim().toLowerCase() === 'true';
+}
+
 function readNumber(key: string, fallback: number): number {
   const value = process.env[key];
   if (value === undefined || value.trim() === '') {
@@ -57,16 +64,29 @@ function readNumber(key: string, fallback: number): number {
   return parsed;
 }
 
-export const env: Env = {
-  nodeEnv: readString('NODE_ENV', 'development'),
-  port: readNumber('PORT', 3000),
-  database: {
+// DATABASE_URL tem prioridade; sem ela, usuario e senha passam a ser obrigatorios
+function readDatabase(): DatabaseConfig {
+  const ssl = readBoolean('DB_SSL', false);
+  const url = readString('DATABASE_URL', '');
+
+  if (url !== '') {
+    return { url, ssl };
+  }
+
+  return {
     host: readString('DB_HOST', 'localhost'),
     port: readNumber('DB_PORT', 5434),
     user: readRequired('DB_USER'),
     password: readRequired('DB_PASSWORD'),
     name: readString('DB_NAME', 'sctec'),
-  },
+    ssl,
+  };
+}
+
+export const env: Env = {
+  nodeEnv: readString('NODE_ENV', 'development'),
+  port: readNumber('PORT', 3000),
+  database: readDatabase(),
   jwt: {
     secret: readRequired('JWT_SECRET'),
     expiresIn: readString('JWT_EXPIRES_IN', '1d'),
