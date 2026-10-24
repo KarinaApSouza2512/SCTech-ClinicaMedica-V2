@@ -3,11 +3,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Patient } from '../../entities/Patient';
 import { pageOffset } from '../../utils/pagination';
 import { IPatientRepository, NewPatientData, PatientFilter } from '../ports/IPatientRepository';
-
-// % e _ digitados pelo usuario sao texto, nao curingas do LIKE
-function escapeLike(value: string): string {
-  return value.replace(/[\\%_]/g, '\\$&');
-}
+import { escapeLike } from './escapeLike';
 
 @Injectable()
 export class TypeOrmPatientRepository implements IPatientRepository {

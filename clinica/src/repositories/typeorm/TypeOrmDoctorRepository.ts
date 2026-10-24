@@ -4,7 +4,9 @@ import { Doctor } from '../../entities/Doctor';
 import { User } from '../../entities/User';
 import { Role } from '../../enums/Role';
 import { uniqueViolationError } from '../../errors/uniqueViolation';
-import { IDoctorRepository, NewDoctorData } from '../ports/IDoctorRepository';
+import { pageOffset } from '../../utils/pagination';
+import { DoctorFilter, IDoctorRepository, NewDoctorData } from '../ports/IDoctorRepository';
+import { escapeLike } from './escapeLike';
 
 @Injectable()
 export class TypeOrmDoctorRepository implements IDoctorRepository {
@@ -14,8 +16,32 @@ export class TypeOrmDoctorRepository implements IDoctorRepository {
     this.repository = dataSource.getRepository(Doctor);
   }
 
+  findById(id: number): Promise<Doctor | null> {
+    return this.repository.findOne({ where: { id }, relations: { user: true } });
+  }
+
+  findByUserId(userId: number): Promise<Doctor | null> {
+    return this.repository.findOne({ where: { userId }, relations: { user: true } });
+  }
+
   findByCrm(crm: string): Promise<Doctor | null> {
     return this.repository.findOne({ where: { crm }, relations: { user: true } });
+  }
+
+  findPage(filter: DoctorFilter): Promise<[Doctor[], number]> {
+    // Juncao 1 para 1 nao multiplica linhas, entao offset/limit direto no SQL basta
+    const query = this.repository
+      .createQueryBuilder('doctor')
+      .innerJoinAndSelect('doctor.user', 'user')
+      .orderBy('doctor.id', 'ASC')
+      .offset(pageOffset(filter))
+      .limit(filter.pageSize);
+
+    if (filter.name) {
+      query.where('user.name ILIKE :name', { name: `%${escapeLike(filter.name)}%` });
+    }
+
+    return query.getManyAndCount();
   }
 
   async createWithUser(data: NewDoctorData): Promise<Doctor> {

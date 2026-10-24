@@ -47,7 +47,10 @@ describe('DoctorService', () => {
 
   beforeEach(() => {
     doctorRepository = {
+      findById: jest.fn(),
+      findByUserId: jest.fn(),
       findByCrm: jest.fn(),
+      findPage: jest.fn(),
       createWithUser: jest.fn(),
     };
     userRepository = {
@@ -104,6 +107,70 @@ describe('DoctorService', () => {
           crm: 'CRM-SC-54321',
         }),
       );
+    });
+  });
+
+  describe('list', () => {
+    it('devolve a pagina com a meta calculada a partir do total', async () => {
+      const doctors = [buildDoctor({ id: 1 }), buildDoctor({ id: 2 })];
+      doctorRepository.findPage.mockResolvedValue([doctors, 3]);
+
+      const result = await doctorService.list({ page: 1, pageSize: 2 });
+
+      expect(doctorRepository.findPage).toHaveBeenCalledWith({
+        page: 1,
+        pageSize: 2,
+        name: undefined,
+      });
+      expect(result).toEqual({
+        data: doctors,
+        meta: { total: 3, page: 1, pageSize: 2, totalPages: 2 },
+      });
+    });
+
+    it('repassa o filtro de nome sem espacos e ignora nome em branco', async () => {
+      doctorRepository.findPage.mockResolvedValue([[], 0]);
+
+      await doctorService.list({ page: 1, pageSize: 20, name: '  hel ' });
+      await doctorService.list({ page: 1, pageSize: 20, name: '   ' });
+
+      expect(doctorRepository.findPage).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ name: 'hel' }),
+      );
+      expect(doctorRepository.findPage).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ name: undefined }),
+      );
+    });
+  });
+
+  describe('findById', () => {
+    it('retorna o medico quando ele existe', async () => {
+      const doctor = buildDoctor();
+      doctorRepository.findById.mockResolvedValue(doctor);
+
+      await expect(doctorService.findById(3)).resolves.toBe(doctor);
+      expect(doctorRepository.findById).toHaveBeenCalledWith(3);
+    });
+
+    it('lanca RECURSO_NAO_ENCONTRADO quando o medico nao existe', async () => {
+      doctorRepository.findById.mockResolvedValue(null);
+
+      await expect(doctorService.findById(99)).rejects.toMatchObject({
+        code: 'RECURSO_NAO_ENCONTRADO',
+      });
+    });
+  });
+
+  describe('findByUserId', () => {
+    it('busca o medico pelo usuario e devolve null quando nao ha vinculo', async () => {
+      const doctor = buildDoctor();
+      doctorRepository.findByUserId.mockResolvedValueOnce(doctor).mockResolvedValueOnce(null);
+
+      await expect(doctorService.findByUserId(7)).resolves.toBe(doctor);
+      await expect(doctorService.findByUserId(1)).resolves.toBeNull();
+      expect(doctorRepository.findByUserId).toHaveBeenCalledWith(7);
     });
   });
 });

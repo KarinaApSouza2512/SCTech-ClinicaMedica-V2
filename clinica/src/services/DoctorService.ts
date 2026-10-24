@@ -7,12 +7,17 @@ import type { IUserRepository } from '../repositories/ports/IUserRepository';
 import { USER_REPOSITORY } from '../repositories/ports/IUserRepository';
 import { normalizeEmail } from '../utils/email';
 import { hashPassword } from '../utils/hash';
+import { buildPage, Paginated, PaginationParams } from '../utils/pagination';
 
 export interface CreateDoctorInput {
   name: string;
   email: string;
   password: string;
   crm: string;
+}
+
+export interface ListDoctorsInput extends PaginationParams {
+  name?: string;
 }
 
 @Injectable()
@@ -41,5 +46,31 @@ export class DoctorService {
       password: await hashPassword(input.password),
       crm,
     });
+  }
+
+  async list(input: ListDoctorsInput): Promise<Paginated<Doctor>> {
+    const name = input.name?.trim();
+    const params = { page: input.page, pageSize: input.pageSize };
+    const [doctors, total] = await this.doctorRepository.findPage({
+      ...params,
+      name: name || undefined,
+    });
+
+    return buildPage(doctors, total, params);
+  }
+
+  async findById(id: number): Promise<Doctor> {
+    const doctor = await this.doctorRepository.findById(id);
+
+    if (!doctor) {
+      throw new DomainError('RECURSO_NAO_ENCONTRADO', 'Medico nao encontrado');
+    }
+
+    return doctor;
+  }
+
+  // Medico ligado ao usuario logado; null se o usuario nao for medico
+  findByUserId(userId: number): Promise<Doctor | null> {
+    return this.doctorRepository.findByUserId(userId);
   }
 }
