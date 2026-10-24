@@ -49,8 +49,8 @@ src/
 ## Configuração do banco de dados e variáveis de ambiente
 
 O banco de dados sobe via Docker Compose (`clinica/postgress/docker-compose.yml`),
-expondo o PostgreSQL em `localhost:5434` com usuário `admin`, senha `password123` e
-banco `sctec`.
+expondo o PostgreSQL em `localhost:5434`. Usuário, senha e nome do banco são lidos do
+`clinica/.env`, que não é versionado.
 
 As variáveis de ambiente ficam em `clinica/.env` (veja `clinica/.env.example` como
 modelo):
@@ -61,10 +61,10 @@ modelo):
 | `PORT`                  | Porta em que a API escuta                | `3000`                           |
 | `DB_HOST`               | Host do PostgreSQL                       | `localhost`                      |
 | `DB_PORT`               | Porta do PostgreSQL                      | `5434`                           |
-| `DB_USER`               | Usuário do PostgreSQL                    | `admin`                          |
-| `DB_PASSWORD`           | Senha do PostgreSQL                      | `password123`                    |
+| `DB_USER`               | Usuário do PostgreSQL                    | obrigatória, sem padrão          |
+| `DB_PASSWORD`           | Senha do PostgreSQL                      | obrigatória, sem padrão          |
 | `DB_NAME`               | Nome do banco de dados                   | `sctec`                          |
-| `JWT_SECRET`            | Chave secreta para assinatura do JWT     | `troque-este-valor-em-producao`  |
+| `JWT_SECRET`            | Chave secreta para assinatura do JWT     | obrigatória, sem padrão          |
 | `JWT_EXPIRES_IN`        | Tempo de expiração do token               | `1d`                              |
 | `BCRYPT_SALT_ROUNDS`    | Custo do hash bcrypt                      | `10`                              |
 
@@ -75,7 +75,7 @@ Defina `JWT_SECRET` com um valor forte em qualquer ambiente que não seja local.
 Na raiz do projeto, execute:
 
 ```bash
-docker compose -f clinica/postgress/docker-compose.yml up -d
+docker compose --env-file clinica/.env -f clinica/postgress/docker-compose.yml up -d
 cd clinica
 npm install
 npm run migration:run

@@ -9,6 +9,10 @@ export interface AdminSeedConfig {
   password: string;
 }
 
+export function isAdminConfigured(config: AdminSeedConfig): boolean {
+  return config.email.trim() !== '' && config.password !== '';
+}
+
 // Cria o primeiro admin; se o e-mail ja existir, nao faz nada (pode rodar varias vezes)
 export async function createAdmin(
   dataSource: DataSource,
@@ -16,7 +20,7 @@ export async function createAdmin(
 ): Promise<boolean> {
   const email = config.email.trim().toLowerCase();
 
-  if (email === '' || config.password === '') {
+  if (!isAdminConfigured(config)) {
     throw new Error('ADMIN_EMAIL e ADMIN_PASSWORD precisam estar definidos para criar o admin');
   }
 

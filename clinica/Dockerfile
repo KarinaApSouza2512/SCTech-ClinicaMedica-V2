@@ -1,31 +1,31 @@
-# FROM = A partir de qual imagem começamos a construir
-# AS = é um apelido para a ETAPA de construção
-FROM node:26-alpine AS builder 
+# Etapa de build: instala tudo (inclusive dev) e compila o TypeScript
+FROM node:22-alpine AS builder
 
-# WORKDIR = O diretório de trabalho, ele coloca o terminal dentro daquele diretório
 WORKDIR /app
 
-# COPY = Copia arquivos e diretórios a partir de onde você executou o comando de build, para dentro do container
-COPY . .
-# Tudo que é possível gerar novamente via um comando E/OU tudo que você não VERSIONA
-
-# Instala as dependências do projeto -> Gera o node_modules
+# Copia so o manifesto primeiro para aproveitar o cache do npm ci
+COPY package*.json ./
 RUN npm ci
 
+COPY tsconfig.json ./
+COPY src ./src
 RUN npm run build
-# /app/dist
 
-# Dentro do ambiente de construção, eu posso rodar qualquer comando linux
+# Etapa de execucao: so dependencias de producao e o codigo compilado
+FROM node:22-alpine AS runner
 
-FROM node:26-alpine AS runner
-
+ENV NODE_ENV=production
 WORKDIR /app
 
+COPY package*.json ./
+# --omit=optional: o typeorm declara ts-node/typescript como peer opcional,
+# que o --omit=dev sozinho nao remove
+RUN npm ci --omit=dev --omit=optional && npm cache clean --force
+
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/package-lock.json ./package-lock.json
 
-RUN npm ci --only=production
+# Nao roda como root dentro do container
+USER node
 
-# O comando que o container vai executar assim que ele for orquestrado
+EXPOSE 3000
 CMD ["node", "dist/main.js"]

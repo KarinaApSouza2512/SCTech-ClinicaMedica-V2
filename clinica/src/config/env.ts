@@ -1,12 +1,10 @@
 import 'dotenv/config';
 
-interface DatabaseConfig {
-  host: string;
-  port: number;
-  user: string;
-  password: string;
-  name: string;
-}
+// Conexao por URL unica (Neon, Render) ou por campos separados (Docker local)
+type DatabaseConnection =
+  { url: string } | { host: string; port: number; user: string; password: string; name: string };
+
+type DatabaseConfig = DatabaseConnection & { ssl: boolean };
 
 interface JwtConfig {
   secret: string;
@@ -33,6 +31,25 @@ function readString(key: string, fallback: string): string {
   return value !== undefined && value.trim() !== '' ? value : fallback;
 }
 
+// Segredos nao tem valor padrao: sem a variavel, a aplicacao nao sobe
+function readRequired(key: string): string {
+  const value = process.env[key];
+  if (value === undefined || value.trim() === '') {
+    throw new Error(`Environment variable ${key} is required`);
+  }
+
+  return value;
+}
+
+function readBoolean(key: string, fallback: boolean): boolean {
+  const value = process.env[key];
+  if (value === undefined || value.trim() === '') {
+    return fallback;
+  }
+
+  return value.trim().toLowerCase() === 'true';
+}
+
 function readNumber(key: string, fallback: number): number {
   const value = process.env[key];
   if (value === undefined || value.trim() === '') {
@@ -47,18 +64,31 @@ function readNumber(key: string, fallback: number): number {
   return parsed;
 }
 
+// DATABASE_URL tem prioridade; sem ela, usuario e senha passam a ser obrigatorios
+function readDatabase(): DatabaseConfig {
+  const ssl = readBoolean('DB_SSL', false);
+  const url = readString('DATABASE_URL', '');
+
+  if (url !== '') {
+    return { url, ssl };
+  }
+
+  return {
+    host: readString('DB_HOST', 'localhost'),
+    port: readNumber('DB_PORT', 5434),
+    user: readRequired('DB_USER'),
+    password: readRequired('DB_PASSWORD'),
+    name: readString('DB_NAME', 'sctec'),
+    ssl,
+  };
+}
+
 export const env: Env = {
   nodeEnv: readString('NODE_ENV', 'development'),
   port: readNumber('PORT', 3000),
-  database: {
-    host: readString('DB_HOST', 'localhost'),
-    port: readNumber('DB_PORT', 5434),
-    user: readString('DB_USER', 'admin'),
-    password: readString('DB_PASSWORD', 'password123'),
-    name: readString('DB_NAME', 'sctec'),
-  },
+  database: readDatabase(),
   jwt: {
-    secret: readString('JWT_SECRET', 'troque-este-valor-em-producao'),
+    secret: readRequired('JWT_SECRET'),
     expiresIn: readString('JWT_EXPIRES_IN', '1d'),
   },
   bcryptSaltRounds: readNumber('BCRYPT_SALT_ROUNDS', 10),

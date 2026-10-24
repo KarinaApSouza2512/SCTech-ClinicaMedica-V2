@@ -6,7 +6,12 @@ import { AuthModule } from './AuthModule';
 import { UserModule } from './UserModule';
 
 @Module({
-  imports: [TypeOrmModule.forRoot(dataSourceOptions), UserModule, AuthModule],
+  imports: [
+    // Aplica as migrations pendentes ao conectar, antes de a API aceitar requisicoes
+    TypeOrmModule.forRoot({ ...dataSourceOptions, migrationsRun: true }),
+    UserModule,
+    AuthModule,
+  ],
   controllers: [HealthController],
 })
 export class AppModule {}
