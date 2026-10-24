@@ -12,6 +12,7 @@ import { DoctorModule } from './DoctorModule';
     { provide: WORK_SCHEDULE_REPOSITORY, useClass: TypeOrmWorkScheduleRepository },
     WorkScheduleService,
   ],
-  exports: [WorkScheduleService],
+  // O repositorio sai do modulo para o agendamento ler a escala sem buscar o medico de novo
+  exports: [WorkScheduleService, WORK_SCHEDULE_REPOSITORY],
 })
 export class WorkScheduleModule {}
