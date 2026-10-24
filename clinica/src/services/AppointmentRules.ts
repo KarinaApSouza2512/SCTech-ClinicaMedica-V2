@@ -25,3 +25,14 @@ export function findShiftForSlot<T extends ShiftData>(
 
   return aligned && fits ? shift : null;
 }
+
+export interface Period {
+  start: Date;
+  end: Date;
+}
+
+// Periodos semiabertos [inicio, fim): consultas encostadas nao conflitam (RN08).
+// As consultas de conflito no repositorio aplicam esta mesma condicao em SQL.
+export function periodsOverlap(a: Period, b: Period): boolean {
+  return a.start < b.end && b.start < a.end;
+}

@@ -1,17 +1,52 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { Appointment } from '../../entities/Appointment';
-import { IAppointmentRepository, NewAppointmentData } from '../ports/IAppointmentRepository';
+import { AppointmentStatus } from '../../enums/AppointmentStatus';
+import {
+  IAppointmentRepository,
+  IAppointmentTransaction,
+  NewAppointmentData,
+} from '../ports/IAppointmentRepository';
 
-@Injectable()
-export class TypeOrmAppointmentRepository implements IAppointmentRepository {
-  private readonly repository: Repository<Appointment>;
+type OverlapColumn = 'doctorId' | 'patientId';
 
-  constructor(dataSource: DataSource) {
-    this.repository = dataSource.getRepository(Appointment);
+// Usa somente o manager recebido: fora dele a consulta sairia da transacao
+class TypeOrmAppointmentTransaction implements IAppointmentTransaction {
+  constructor(private readonly manager: EntityManager) {}
+
+  hasDoctorOverlap(doctorId: number, start: Date, end: Date): Promise<boolean> {
+    return this.hasOverlap('doctorId', doctorId, start, end);
+  }
+
+  hasPatientOverlap(patientId: number, start: Date, end: Date): Promise<boolean> {
+    return this.hasOverlap('patientId', patientId, start, end);
   }
 
   create(data: NewAppointmentData): Promise<Appointment> {
-    return this.repository.save(this.repository.create(data));
+    const repository = this.manager.getRepository(Appointment);
+    return repository.save(repository.create(data));
+  }
+
+  // Mesma condicao de periodsOverlap: a.inicio < b.fim e b.inicio < a.fim
+  private hasOverlap(column: OverlapColumn, id: number, start: Date, end: Date): Promise<boolean> {
+    return this.manager
+      .getRepository(Appointment)
+      .createQueryBuilder('appointment')
+      .where(`appointment.${column} = :id`, { id })
+      .andWhere('appointment.status <> :cancelled', { cancelled: AppointmentStatus.CANCELLED })
+      .andWhere('appointment.startsAt < :end', { end })
+      .andWhere('appointment.endsAt > :start', { start })
+      .getExists();
+  }
+}
+
+@Injectable()
+export class TypeOrmAppointmentRepository implements IAppointmentRepository {
+  constructor(private readonly dataSource: DataSource) {}
+
+  inTransaction<T>(work: (tx: IAppointmentTransaction) => Promise<T>): Promise<T> {
+    return this.dataSource.transaction((manager) =>
+      work(new TypeOrmAppointmentTransaction(manager)),
+    );
   }
 }

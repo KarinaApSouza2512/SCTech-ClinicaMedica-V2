@@ -43,13 +43,21 @@ export class AppointmentService {
     }
 
     // O fim e calculado agora e gravado: mudar a escala depois nao altera a consulta
-    const endsAt = new Date(input.startsAt.getTime() + shift.slotDurationMinutes * MINUTE_MS);
+    const startsAt = input.startsAt;
+    const endsAt = new Date(startsAt.getTime() + shift.slotDurationMinutes * MINUTE_MS);
 
-    return this.appointmentRepository.create({
-      doctorId: input.doctorId,
-      patientId: input.patientId,
-      startsAt: input.startsAt,
-      endsAt,
+    return this.appointmentRepository.inTransaction(async (tx) => {
+      // 5. medico livre no periodo (409)
+      if (await tx.hasDoctorOverlap(input.doctorId, startsAt, endsAt)) {
+        throw new DomainError('HORARIO_INDISPONIVEL', 'Medico ja tem consulta nesse horario');
+      }
+
+      // 6. paciente livre no periodo (409)
+      if (await tx.hasPatientOverlap(input.patientId, startsAt, endsAt)) {
+        throw new DomainError('PACIENTE_INDISPONIVEL', 'Paciente ja tem consulta nesse horario');
+      }
+
+      return tx.create({ doctorId: input.doctorId, patientId: input.patientId, startsAt, endsAt });
     });
   }
 }
