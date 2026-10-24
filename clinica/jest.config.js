@@ -2,7 +2,8 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/tests'],
+  // src entra para que um service sem nenhum teste conte como 0% na cobertura
+  roots: ['<rootDir>/src', '<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   clearMocks: true,
   // Cobertura medida so na camada de regra de negocio

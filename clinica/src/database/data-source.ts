@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import path from 'node:path';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { env } from '../config/env';
+import { Patient } from '../entities/Patient';
 import { User } from '../entities/User';
 
 const { database } = env;
@@ -25,7 +26,7 @@ export const dataSourceOptions: DataSourceOptions = {
   ssl: database.ssl ? { rejectUnauthorized: false } : false,
   synchronize: false,
   logging: env.nodeEnv === 'development',
-  entities: [User],
+  entities: [User, Patient],
   // Rodando do dist so existem .js; com ts-node, so .ts
   migrations: [path.join(__dirname, 'migrations', '*.{ts,js}')],
 };
