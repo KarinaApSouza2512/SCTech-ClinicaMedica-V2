@@ -31,6 +31,8 @@ export interface IAppointmentTransaction {
 // Porta usada pelos services; os testes trocam por um duble
 export interface IAppointmentRepository {
   findById(id: number): Promise<Appointment | null>;
+  // Vinculo de atendimento (RN14): ao menos uma consulta in_progress ou done entre os dois
+  hasCareLink(doctorId: number, patientId: number): Promise<boolean>;
   // Agendamentos nao cancelados do medico que tocam [start, end), ordenados por inicio
   findActiveByDoctorBetween(doctorId: number, start: Date, end: Date): Promise<Appointment[]>;
   // Pagina pedida, ordenada por inicio, e total de registros que atendem ao filtro

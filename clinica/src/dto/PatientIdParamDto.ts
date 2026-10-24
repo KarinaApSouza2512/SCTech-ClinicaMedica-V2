@@ -1,0 +1,10 @@
+import { Type } from 'class-transformer';
+import { IsInt, Min } from 'class-validator';
+
+// Parametro :patientId das rotas aninhadas em /patients
+export class PatientIdParamDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  patientId!: number;
+}

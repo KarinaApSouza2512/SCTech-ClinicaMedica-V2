@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
 import { Appointment } from '../../entities/Appointment';
 import { Doctor } from '../../entities/Doctor';
 import { Patient } from '../../entities/Patient';
@@ -59,6 +59,16 @@ export class TypeOrmAppointmentRepository implements IAppointmentRepository {
 
   findById(id: number): Promise<Appointment | null> {
     return this.dataSource.getRepository(Appointment).findOne({ where: { id } });
+  }
+
+  hasCareLink(doctorId: number, patientId: number): Promise<boolean> {
+    return this.dataSource.getRepository(Appointment).exists({
+      where: {
+        doctorId,
+        patientId,
+        status: In([AppointmentStatus.IN_PROGRESS, AppointmentStatus.DONE]),
+      },
+    });
   }
 
   findActiveByDoctorBetween(doctorId: number, start: Date, end: Date): Promise<Appointment[]> {
