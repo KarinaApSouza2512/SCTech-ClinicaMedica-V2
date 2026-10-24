@@ -388,8 +388,19 @@ describe('AppointmentService', () => {
     });
   });
 
+  // Agendamento qualquer, para os testes que so repassam o que o repositorio devolve
+  function sample(): Appointment {
+    return persisted({
+      doctorId: 3,
+      patientId: 10,
+      startsAt: TUESDAY_08_00,
+      endsAt: new Date('2026-10-13T11:30:00Z'),
+    });
+  }
+
   describe('list', () => {
     const page = { page: 1, pageSize: 20 };
+    const admin = { id: 1, roles: [Role.ADMIN] };
 
     it('medico sem admin tem o doctorId forcado para o dele', async () => {
       doctorService.findByUserId.mockResolvedValue({ id: 3 } as Doctor);
@@ -399,6 +410,57 @@ describe('AppointmentService', () => {
       expect(doctorService.findByUserId).toHaveBeenCalledWith(7);
       expect(appointmentRepository.findPage).toHaveBeenCalledWith(
         expect.objectContaining({ doctorId: 3 }),
+      );
+    });
+
+    it('medico sem cadastro de medico recebe lista vazia, sem consultar o banco', async () => {
+      const result = await appointmentService.list(
+        { ...page, doctorId: 4 },
+        { id: 99, roles: [Role.DOCTOR] },
+      );
+
+      expect(result.data).toEqual([]);
+      expect(result.meta).toEqual({ total: 0, page: 1, pageSize: 20, totalPages: 0 });
+      expect(appointmentRepository.findPage).not.toHaveBeenCalled();
+    });
+
+    it('medico que tambem e admin nao tem o filtro forcado', async () => {
+      const doctorAdmin = { id: 7, roles: [Role.DOCTOR, Role.ADMIN] };
+      await appointmentService.list({ ...page, doctorId: 4 }, doctorAdmin);
+
+      expect(appointmentRepository.findPage).toHaveBeenCalledWith(
+        expect.objectContaining({ doctorId: 4 }),
+      );
+      expect(doctorService.findByUserId).not.toHaveBeenCalled();
+    });
+
+    it('devolve a pagina com a meta calculada a partir do total', async () => {
+      const items = [sample()];
+      appointmentRepository.findPage.mockResolvedValue([items, 41]);
+
+      const result = await appointmentService.list({ page: 3, pageSize: 20 }, admin);
+
+      expect(result.data).toBe(items);
+      expect(result.meta).toEqual({ total: 41, page: 3, pageSize: 20, totalPages: 3 });
+    });
+
+    it('aceita so from ou so to', async () => {
+      await appointmentService.list({ ...page, from: '2026-10-12' }, admin);
+      await appointmentService.list({ ...page, to: '2026-10-12' }, admin);
+
+      expect(appointmentRepository.findPage).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          startsFrom: new Date('2026-10-12T03:00:00Z'),
+          startsBefore: undefined,
+        }),
+      );
+      expect(appointmentRepository.findPage).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          startsFrom: undefined,
+          startsBefore: new Date('2026-10-13T03:00:00Z'),
+        }),
       );
     });
 
@@ -494,6 +556,37 @@ describe('AppointmentService', () => {
       );
       expect(result.shifts).toHaveLength(2);
       expect(result.appointments).toEqual([]);
+    });
+
+    it('devolve os agendamentos ativos que o repositorio encontrou', async () => {
+      const active = [sample()];
+      appointmentRepository.findActiveByDoctorBetween.mockResolvedValue(active);
+
+      await expect(appointmentService.calendar(3, '2026-10-13', '2026-10-13')).resolves.toEqual({
+        shifts: expect.any(Array),
+        appointments: active,
+      });
+    });
+
+    it('aceita exatamente 31 dias, contando as duas pontas', async () => {
+      await appointmentService.calendar(3, '2026-10-01', '2026-10-31');
+
+      expect(appointmentRepository.findActiveByDoctorBetween).toHaveBeenCalledWith(
+        3,
+        new Date('2026-10-01T03:00:00Z'),
+        new Date('2026-11-01T03:00:00Z'),
+      );
+    });
+
+    it('usa o fuso da clinica nos limites, inclusive em virada de horario de verao', async () => {
+      // 04/11/2018 comecou as 01:00 local (03:00Z); 05/11 comecou as 00:00 local (02:00Z)
+      await appointmentService.calendar(3, '2018-11-04', '2018-11-04');
+
+      expect(appointmentRepository.findActiveByDoctorBetween).toHaveBeenCalledWith(
+        3,
+        new Date('2018-11-04T03:00:00Z'),
+        new Date('2018-11-05T02:00:00Z'),
+      );
     });
 
     it('recusa from posterior a to', async () => {

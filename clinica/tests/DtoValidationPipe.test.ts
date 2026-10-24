@@ -1,7 +1,9 @@
 import 'reflect-metadata';
 import { ArgumentMetadata } from '@nestjs/common';
+import { CalendarQueryDto } from '../src/dto/CalendarQueryDto';
 import { CreateUserDto } from '../src/dto/CreateUserDto';
 import { IdParamDto } from '../src/dto/IdParamDto';
+import { ListAppointmentsQueryDto } from '../src/dto/ListAppointmentsQueryDto';
 import { LoginDto } from '../src/dto/LoginDto';
 import { WorkScheduleDto } from '../src/dto/WorkScheduleDto';
 import { DomainError } from '../src/errors/DomainError';
@@ -88,6 +90,38 @@ describe('DtoValidationPipe', () => {
       await expect(pipe.transform({}, schedule)).rejects.toMatchObject({
         code: 'DADOS_INVALIDOS',
       });
+    });
+  });
+
+  describe('ListAppointmentsQueryDto', () => {
+    const query: ArgumentMetadata = { type: 'query', metatype: ListAppointmentsQueryDto };
+
+    it('converte os ids da query e aplica a paginacao padrao', async () => {
+      await expect(
+        pipe.transform({ doctorId: '3', patientId: '10', from: '2026-10-12' }, query),
+      ).resolves.toEqual({ doctorId: 3, patientId: 10, from: '2026-10-12', page: 1, pageSize: 20 });
+    });
+
+    it.each([
+      ['status fora do enum', { status: 'finished' }],
+      ['data com barras', { from: '12/10/2026' }],
+      ['data inexistente', { to: '2026-02-30' }],
+      ['data com hora', { from: '2026-10-12T08:00:00Z' }],
+      ['doctorId zero', { doctorId: '0' }],
+    ])('recusa %s', async (_case, value) => {
+      await expect(pipe.transform(value, query)).rejects.toMatchObject({ code: 'DADOS_INVALIDOS' });
+    });
+  });
+
+  describe('CalendarQueryDto', () => {
+    const query: ArgumentMetadata = { type: 'query', metatype: CalendarQueryDto };
+
+    it('exige from e to', async () => {
+      await expect(pipe.transform({ from: '2026-10-12' }, query)).rejects.toMatchObject({
+        code: 'DADOS_INVALIDOS',
+      });
+      const valid = { from: '2026-10-12', to: '2026-10-16' };
+      await expect(pipe.transform(valid, query)).resolves.toEqual(valid);
     });
   });
 });
