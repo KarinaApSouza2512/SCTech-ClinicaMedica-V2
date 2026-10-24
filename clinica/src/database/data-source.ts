@@ -5,6 +5,7 @@ import { env } from '../config/env';
 import { Doctor } from '../entities/Doctor';
 import { Patient } from '../entities/Patient';
 import { User } from '../entities/User';
+import { WorkShift } from '../entities/WorkShift';
 
 const { database } = env;
 
@@ -27,7 +28,7 @@ export const dataSourceOptions: DataSourceOptions = {
   ssl: database.ssl ? { rejectUnauthorized: false } : false,
   synchronize: false,
   logging: env.nodeEnv === 'development',
-  entities: [User, Patient, Doctor],
+  entities: [User, Patient, Doctor, WorkShift],
   // Rodando do dist so existem .js; com ts-node, so .ts
   migrations: [path.join(__dirname, 'migrations', '*.{ts,js}')],
 };

@@ -3,6 +3,7 @@ import { ArgumentMetadata } from '@nestjs/common';
 import { CreateUserDto } from '../src/dto/CreateUserDto';
 import { IdParamDto } from '../src/dto/IdParamDto';
 import { LoginDto } from '../src/dto/LoginDto';
+import { WorkScheduleDto } from '../src/dto/WorkScheduleDto';
 import { DomainError } from '../src/errors/DomainError';
 import { DtoValidationPipe } from '../src/pipes/DtoValidationPipe';
 
@@ -49,6 +50,42 @@ describe('DtoValidationPipe', () => {
 
     it.each([[['root']], [[]], ['admin']])('recusa roles %j com DADOS_INVALIDOS', async (roles) => {
       await expect(pipe.transform({ ...valid, roles }, createUser)).rejects.toMatchObject({
+        code: 'DADOS_INVALIDOS',
+      });
+    });
+  });
+
+  describe('WorkScheduleDto', () => {
+    const schedule: ArgumentMetadata = { type: 'body', metatype: WorkScheduleDto };
+    const valid = { weekDay: 2, startTime: '08:00', endTime: '12:00', slotDurationMinutes: 30 };
+
+    it('aceita a escala do contrato e a lista vazia', async () => {
+      await expect(pipe.transform({ shifts: [valid] }, schedule)).resolves.toEqual({
+        shifts: [valid],
+      });
+      await expect(pipe.transform({ shifts: [] }, schedule)).resolves.toEqual({ shifts: [] });
+    });
+
+    it.each([
+      ['weekDay 7', { weekDay: 7 }],
+      ['weekDay -1', { weekDay: -1 }],
+      ['weekDay fracionado', { weekDay: 1.5 }],
+      ['hora sem zero a esquerda', { startTime: '8:00' }],
+      ['hora 24:00', { endTime: '24:00' }],
+      ['minuto 60', { startTime: '08:60' }],
+      ['hora com segundos', { startTime: '08:00:00' }],
+      ['duracao zero', { slotDurationMinutes: 0 }],
+      ['duracao negativa', { slotDurationMinutes: -30 }],
+      ['duracao fracionada', { slotDurationMinutes: 1.5 }],
+      ['duracao em texto', { slotDurationMinutes: '30' }],
+    ])('recusa turno com %s', async (_case, change) => {
+      const result = pipe.transform({ shifts: [{ ...valid, ...change }] }, schedule);
+
+      await expect(result).rejects.toMatchObject({ code: 'DADOS_INVALIDOS' });
+    });
+
+    it('recusa corpo sem a lista de turnos', async () => {
+      await expect(pipe.transform({}, schedule)).rejects.toMatchObject({
         code: 'DADOS_INVALIDOS',
       });
     });
