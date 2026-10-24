@@ -7,5 +7,6 @@ import { PatientService } from '../services/PatientService';
 @Module({
   controllers: [PatientController],
   providers: [{ provide: PATIENT_REPOSITORY, useClass: TypeOrmPatientRepository }, PatientService],
+  exports: [PatientService],
 })
 export class PatientModule {}

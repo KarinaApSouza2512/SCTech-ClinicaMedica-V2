@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HealthController } from '../controllers/HealthController';
 import { dataSourceOptions } from '../database/data-source';
+import { AppointmentModule } from './AppointmentModule';
 import { AuthModule } from './AuthModule';
 import { DoctorModule } from './DoctorModule';
 import { PatientModule } from './PatientModule';
@@ -17,6 +18,7 @@ import { WorkScheduleModule } from './WorkScheduleModule';
     PatientModule,
     DoctorModule,
     WorkScheduleModule,
+    AppointmentModule,
   ],
   controllers: [HealthController],
 })
