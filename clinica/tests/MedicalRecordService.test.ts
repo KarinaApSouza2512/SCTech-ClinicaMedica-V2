@@ -105,6 +105,13 @@ describe('MedicalRecordService', () => {
       });
     });
 
+    it('admin le para auditoria sem precisar de vinculo', async () => {
+      await medicalRecordService.list(10, page, { id: 1, roles: [Role.ADMIN] });
+
+      expect(appointmentRepository.hasCareLink).not.toHaveBeenCalled();
+      expect(medicalRecordRepository.findPageByPatient).toHaveBeenCalledWith(10, page);
+    });
+
     it('medico sem vinculo nao le', async () => {
       await expect(medicalRecordService.list(10, page, unlinkedDoctor)).rejects.toMatchObject({
         code: 'ACESSO_NEGADO',

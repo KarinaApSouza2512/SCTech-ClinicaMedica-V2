@@ -41,7 +41,11 @@ export class MedicalRecordService {
     requester: Requester,
   ): Promise<Paginated<MedicalRecord>> {
     await this.patientService.findById(patientId);
-    await this.linkedDoctor(patientId, requester);
+
+    // Admin le para auditoria, sem vinculo; os demais precisam ter atendido o paciente
+    if (!requester.roles.includes(Role.ADMIN)) {
+      await this.linkedDoctor(patientId, requester);
+    }
 
     const params = { page: page.page, pageSize: page.pageSize };
     const [records, total] = await this.medicalRecordRepository.findPageByPatient(

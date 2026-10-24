@@ -29,8 +29,9 @@ export class MedicalRecordController {
     return toMedicalRecordResponse(record);
   }
 
+  // Secretary recebe 403: agenda consulta, nao acessa informacao clinica
   @Get()
-  @Roles(Role.DOCTOR)
+  @Roles(Role.DOCTOR, Role.ADMIN)
   async list(
     @Param() params: PatientIdParamDto,
     @Query() query: PaginationQueryDto,
