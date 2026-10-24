@@ -1,8 +1,8 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
 import { Response } from 'express';
-import { QueryFailedError } from 'typeorm';
 import { DomainError } from '../errors/DomainError';
 import { ErrorCode } from '../errors/ErrorCode';
+import { uniqueViolationError } from '../errors/uniqueViolation';
 
 type ErrorName = ErrorCode | 'ERRO_INTERNO';
 
@@ -34,15 +34,6 @@ const STATUS_BY_CODE: Record<ErrorCode, number> = {
   TRANSICAO_INVALIDA: HttpStatus.UNPROCESSABLE_ENTITY,
 };
 
-const PG_UNIQUE_VIOLATION = '23505';
-
-// Nome da constraint unique no banco -> codigo do catalogo
-const UNIQUE_CONSTRAINT_CODES: Record<string, ErrorCode> = {
-  UQ_users_email: 'EMAIL_JA_CADASTRADO',
-  UQ_patients_cpf: 'CPF_JA_CADASTRADO',
-  UQ_doctors_crm: 'CRM_JA_CADASTRADO',
-};
-
 const INTERNAL_ERROR: ErrorInfo = {
   statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
   error: 'ERRO_INTERNO',
@@ -69,16 +60,6 @@ function fromHttpException(exception: HttpException): ErrorInfo {
   return INTERNAL_ERROR;
 }
 
-function uniqueViolationCode(error: QueryFailedError): ErrorCode | undefined {
-  const driverError = error.driverError as { code?: string; constraint?: string } | undefined;
-
-  if (driverError?.code !== PG_UNIQUE_VIOLATION || !driverError.constraint) {
-    return undefined;
-  }
-
-  return UNIQUE_CONSTRAINT_CODES[driverError.constraint];
-}
-
 // Ponto unico de tratamento de erro da aplicacao
 @Catch()
 export class AppExceptionFilter implements ExceptionFilter {
@@ -99,23 +80,20 @@ export class AppExceptionFilter implements ExceptionFilter {
   }
 
   private toErrorInfo(exception: unknown): ErrorInfo {
-    if (exception instanceof DomainError) {
+    // Unique violado fora de um repositorio que ja trate o erro vira o codigo do catalogo
+    const domainError =
+      exception instanceof DomainError ? exception : uniqueViolationError(exception);
+
+    if (domainError) {
       return {
-        statusCode: STATUS_BY_CODE[exception.code],
-        error: exception.code,
-        message: exception.message,
+        statusCode: STATUS_BY_CODE[domainError.code],
+        error: domainError.code,
+        message: domainError.message,
       };
     }
 
     if (exception instanceof HttpException) {
       return fromHttpException(exception);
-    }
-
-    if (exception instanceof QueryFailedError) {
-      const code = uniqueViolationCode(exception);
-      if (code) {
-        return { statusCode: STATUS_BY_CODE[code], error: code, message: 'Registro ja existente' };
-      }
     }
 
     return INTERNAL_ERROR;
