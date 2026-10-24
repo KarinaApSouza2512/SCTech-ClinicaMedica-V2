@@ -60,7 +60,7 @@ modelo):
 | `NODE_ENV`              | Ambiente de execução                    | `development`                    |
 | `PORT`                  | Porta em que a API escuta                | `3000`                           |
 | `DB_HOST`               | Host do PostgreSQL                       | `localhost`                      |
-| `DB_PORT`               | Porta do PostgreSQL                      | `5434`                           |
+| `DB_PORT`               | Porta do PostgreSQL                      | `5432` (Docker local: `5434`)    |
 | `DB_USER`               | Usuário do PostgreSQL                    | obrigatória, sem padrão          |
 | `DB_PASSWORD`           | Senha do PostgreSQL                      | obrigatória, sem padrão          |
 | `DB_NAME`               | Nome do banco de dados                   | `sctec`                          |
