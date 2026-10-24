@@ -8,3 +8,14 @@ export function timeToMinutes(time: string): number {
 export function formatTime(time: string): string {
   return time.slice(0, 5);
 }
+
+export interface MinuteRange {
+  start: number;
+  end: number;
+}
+
+// Intervalos semiabertos [inicio, fim): encostados, um terminando quando
+// o outro comeca, nao se sobrepoem
+export function rangesOverlap(a: MinuteRange, b: MinuteRange): boolean {
+  return a.start < b.end && b.start < a.end;
+}

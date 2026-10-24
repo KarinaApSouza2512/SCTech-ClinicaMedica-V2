@@ -67,6 +67,34 @@ describe('WorkScheduleService', () => {
       expect(workScheduleRepository.replaceForDoctor).not.toHaveBeenCalled();
     });
 
+    it('rejeita dois turnos sobrepostos no mesmo dia', async () => {
+      const result = workScheduleService.replace(3, [
+        shift(2, '08:00', '12:00'),
+        shift(2, '11:00', '13:00'),
+      ]);
+
+      await expect(result).rejects.toMatchObject({ code: 'DADOS_INVALIDOS' });
+      expect(workScheduleRepository.replaceForDoctor).not.toHaveBeenCalled();
+    });
+
+    it('aceita turnos encostados no mesmo dia', async () => {
+      const shifts = [shift(2, '08:00', '12:00'), shift(2, '12:00', '18:00')];
+      workScheduleRepository.replaceForDoctor.mockResolvedValue([]);
+
+      await workScheduleService.replace(3, shifts);
+
+      expect(workScheduleRepository.replaceForDoctor).toHaveBeenCalledWith(3, shifts);
+    });
+
+    it('aceita o mesmo horario em dias diferentes', async () => {
+      const shifts = [shift(2, '08:00', '12:00'), shift(4, '08:00', '12:00')];
+      workScheduleRepository.replaceForDoctor.mockResolvedValue([]);
+
+      await workScheduleService.replace(3, shifts);
+
+      expect(workScheduleRepository.replaceForDoctor).toHaveBeenCalledWith(3, shifts);
+    });
+
     it('propaga o 404 quando o medico nao existe e nao grava nada', async () => {
       doctorService.findById.mockRejectedValue(
         new DomainError('RECURSO_NAO_ENCONTRADO', 'Medico nao encontrado'),
