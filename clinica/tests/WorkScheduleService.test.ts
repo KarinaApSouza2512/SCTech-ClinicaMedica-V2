@@ -95,6 +95,42 @@ describe('WorkScheduleService', () => {
       expect(workScheduleRepository.replaceForDoctor).toHaveBeenCalledWith(3, shifts);
     });
 
+    it('detecta sobreposicao mesmo com os turnos fora de ordem', async () => {
+      const result = workScheduleService.replace(3, [
+        shift(3, '14:00', '15:00'),
+        shift(1, '08:00', '12:00'),
+        shift(3, '08:00', '18:00'),
+      ]);
+
+      await expect(result).rejects.toMatchObject({
+        code: 'DADOS_INVALIDOS',
+        message: 'Turnos sobrepostos no dia 3: 08:00-18:00 e 14:00-15:00',
+      });
+    });
+
+    it('rejeita dois turnos identicos no mesmo dia', async () => {
+      await expect(
+        workScheduleService.replace(3, [shift(2, '08:00', '12:00'), shift(2, '08:00', '12:00')]),
+      ).rejects.toMatchObject({ code: 'DADOS_INVALIDOS' });
+    });
+
+    it('aceita manha e tarde com duracoes de consulta diferentes', async () => {
+      const shifts = [shift(2, '14:00', '18:00', 20), shift(2, '08:00', '12:00', 30)];
+      workScheduleRepository.replaceForDoctor.mockResolvedValue([]);
+
+      await workScheduleService.replace(3, shifts);
+
+      // O service valida, mas grava os turnos como vieram
+      expect(workScheduleRepository.replaceForDoctor).toHaveBeenCalledWith(3, shifts);
+    });
+
+    it('valida os dados antes de consultar o medico', async () => {
+      await expect(
+        workScheduleService.replace(3, [shift(1, '10:00', '09:00')]),
+      ).rejects.toMatchObject({ code: 'DADOS_INVALIDOS' });
+      expect(doctorService.findById).not.toHaveBeenCalled();
+    });
+
     it('propaga o 404 quando o medico nao existe e nao grava nada', async () => {
       doctorService.findById.mockRejectedValue(
         new DomainError('RECURSO_NAO_ENCONTRADO', 'Medico nao encontrado'),
