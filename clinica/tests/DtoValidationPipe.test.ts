@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { ArgumentMetadata } from '@nestjs/common';
 import { CalendarQueryDto } from '../src/dto/CalendarQueryDto';
+import { CreateMedicalRecordDto } from '../src/dto/CreateMedicalRecordDto';
 import { CreateUserDto } from '../src/dto/CreateUserDto';
 import { IdParamDto } from '../src/dto/IdParamDto';
 import { ListAppointmentsQueryDto } from '../src/dto/ListAppointmentsQueryDto';
@@ -122,6 +123,30 @@ describe('DtoValidationPipe', () => {
       });
       const valid = { from: '2026-10-12', to: '2026-10-16' };
       await expect(pipe.transform(valid, query)).resolves.toEqual(valid);
+    });
+  });
+
+  describe('CreateMedicalRecordDto', () => {
+    const medicalRecord: ArgumentMetadata = { type: 'body', metatype: CreateMedicalRecordDto };
+
+    it('descarta doctorId e patientId do corpo, sem erro', async () => {
+      const result = await pipe.transform(
+        { text: '  Dor lombar.  ', doctorId: 99, patientId: 42 },
+        medicalRecord,
+      );
+
+      expect(result).toEqual({ text: 'Dor lombar.' });
+    });
+
+    it.each([
+      ['ausente', {}],
+      ['vazio', { text: '' }],
+      ['so com espacos', { text: '   ' }],
+      ['que nao e texto', { text: 123 }],
+    ])('recusa texto %s', async (_case, body) => {
+      await expect(pipe.transform(body, medicalRecord)).rejects.toMatchObject({
+        code: 'DADOS_INVALIDOS',
+      });
     });
   });
 });

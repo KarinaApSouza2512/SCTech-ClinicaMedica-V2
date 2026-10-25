@@ -5,6 +5,7 @@ import { dataSourceOptions } from '../database/data-source';
 import { AppointmentModule } from './AppointmentModule';
 import { AuthModule } from './AuthModule';
 import { DoctorModule } from './DoctorModule';
+import { MedicalRecordModule } from './MedicalRecordModule';
 import { PatientModule } from './PatientModule';
 import { UserModule } from './UserModule';
 import { WorkScheduleModule } from './WorkScheduleModule';
@@ -19,6 +20,7 @@ import { WorkScheduleModule } from './WorkScheduleModule';
     DoctorModule,
     WorkScheduleModule,
     AppointmentModule,
+    MedicalRecordModule,
   ],
   controllers: [HealthController],
 })

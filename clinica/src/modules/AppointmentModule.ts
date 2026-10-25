@@ -15,6 +15,7 @@ import { WorkScheduleModule } from './WorkScheduleModule';
     { provide: APPOINTMENT_REPOSITORY, useClass: TypeOrmAppointmentRepository },
     AppointmentService,
   ],
-  exports: [AppointmentService],
+  // O repositorio sai do modulo para o prontuario consultar o vinculo de atendimento
+  exports: [AppointmentService, APPOINTMENT_REPOSITORY],
 })
 export class AppointmentModule {}
