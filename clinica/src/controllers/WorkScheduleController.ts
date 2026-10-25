@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Put, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../decorators/Roles';
 import { DoctorIdParamDto } from '../dto/DoctorIdParamDto';
 import { WorkScheduleDto } from '../dto/WorkScheduleDto';
@@ -8,6 +9,8 @@ import { RolesGuard } from '../guards/RolesGuard';
 import { toWorkScheduleResponse, WorkScheduleResponse } from '../mappers/WorkScheduleMapper';
 import { WorkScheduleService } from '../services/WorkScheduleService';
 
+@ApiTags('Escala de trabalho')
+@ApiBearerAuth()
 @Controller('doctors/:doctorId/work-schedule')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class WorkScheduleController {

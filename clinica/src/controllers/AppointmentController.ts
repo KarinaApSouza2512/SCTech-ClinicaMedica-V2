@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../decorators/CurrentUser';
 import { Roles } from '../decorators/Roles';
 import { CreateAppointmentDto } from '../dto/CreateAppointmentDto';
@@ -12,6 +13,8 @@ import { AppointmentResponse, toAppointmentResponse } from '../mappers/Appointme
 import { AppointmentService } from '../services/AppointmentService';
 import { Paginated } from '../utils/pagination';
 
+@ApiTags('Agendamentos')
+@ApiBearerAuth()
 @Controller('appointments')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AppointmentController {

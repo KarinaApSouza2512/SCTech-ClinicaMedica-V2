@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../decorators/CurrentUser';
 import { Roles } from '../decorators/Roles';
 import { CreateMedicalRecordDto } from '../dto/CreateMedicalRecordDto';
@@ -12,6 +13,8 @@ import { MedicalRecordService } from '../services/MedicalRecordService';
 import { Paginated } from '../utils/pagination';
 
 // @Roles barra quem nunca pode; o vinculo de atendimento e conferido no service
+@ApiTags('Prontuario')
+@ApiBearerAuth()
 @Controller('patients/:patientId/medical-records')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class MedicalRecordController {

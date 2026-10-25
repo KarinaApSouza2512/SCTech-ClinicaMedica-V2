@@ -11,6 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../decorators/Roles';
 import { CreatePatientDto } from '../dto/CreatePatientDto';
 import { IdParamDto } from '../dto/IdParamDto';
@@ -24,6 +25,8 @@ import { PatientService } from '../services/PatientService';
 import { Paginated } from '../utils/pagination';
 
 // Rotas sem @Roles aceitam qualquer usuario autenticado
+@ApiTags('Pacientes')
+@ApiBearerAuth()
 @Controller('patients')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class PatientController {
