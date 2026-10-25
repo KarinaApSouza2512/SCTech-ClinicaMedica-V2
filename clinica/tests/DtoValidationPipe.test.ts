@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { ArgumentMetadata } from '@nestjs/common';
 import { CalendarQueryDto } from '../src/dto/CalendarQueryDto';
+import { CreateDoctorDto } from '../src/dto/CreateDoctorDto';
 import { CreateMedicalRecordDto } from '../src/dto/CreateMedicalRecordDto';
 import { CreateUserDto } from '../src/dto/CreateUserDto';
 import { IdParamDto } from '../src/dto/IdParamDto';
@@ -53,6 +54,41 @@ describe('DtoValidationPipe', () => {
 
     it.each([[['root']], [[]], ['admin']])('recusa roles %j com DADOS_INVALIDOS', async (roles) => {
       await expect(pipe.transform({ ...valid, roles }, createUser)).rejects.toMatchObject({
+        code: 'DADOS_INVALIDOS',
+      });
+    });
+
+    it('aceita nome curto e recusa nome em branco', async () => {
+      await expect(pipe.transform({ ...valid, name: ' X ' }, createUser)).resolves.toMatchObject({
+        name: 'X',
+      });
+      await expect(pipe.transform({ ...valid, name: '   ' }, createUser)).rejects.toMatchObject({
+        code: 'DADOS_INVALIDOS',
+      });
+    });
+  });
+
+  describe('CreateDoctorDto', () => {
+    const createDoctor: ArgumentMetadata = { type: 'body', metatype: CreateDoctorDto };
+    const valid = {
+      name: 'Dra. Helena Souza',
+      email: 'helena@medclinic.com',
+      password: 'SenhaForte@123',
+      crm: 'CRM-SC-54321',
+    };
+
+    it('aceita o corpo do contrato e nome curto', async () => {
+      await expect(pipe.transform(valid, createDoctor)).resolves.toEqual(valid);
+      await expect(pipe.transform({ ...valid, name: 'X' }, createDoctor)).resolves.toMatchObject({
+        name: 'X',
+      });
+    });
+
+    it.each(['name', 'email', 'password', 'crm'])('recusa corpo sem %s', async (field) => {
+      const body: Record<string, string> = { ...valid };
+      delete body[field];
+
+      await expect(pipe.transform(body, createDoctor)).rejects.toMatchObject({
         code: 'DADOS_INVALIDOS',
       });
     });

@@ -3,15 +3,19 @@ import {
   IsArray,
   IsEmail,
   IsEnum,
+  IsNotEmpty,
   IsString,
   MaxLength,
   MinLength,
 } from 'class-validator';
 import { Role } from '../enums/Role';
+import { TrimString } from './TrimString';
 
 export class CreateUserDto {
+  // O contrato so exige nome presente; espacos nas pontas nao contam
+  @TrimString()
   @IsString()
-  @MinLength(2)
+  @IsNotEmpty()
   @MaxLength(120)
   name!: string;
 

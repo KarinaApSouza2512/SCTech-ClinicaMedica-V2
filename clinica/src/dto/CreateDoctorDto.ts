@@ -5,7 +5,7 @@ import { TrimString } from './TrimString';
 export class CreateDoctorDto {
   @TrimString()
   @IsString()
-  @MinLength(2)
+  @IsNotEmpty()
   @MaxLength(120)
   name!: string;
 
