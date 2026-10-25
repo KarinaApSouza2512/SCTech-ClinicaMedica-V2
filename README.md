@@ -7,6 +7,8 @@ concorrência e prontuário com acesso por vínculo de atendimento.
 **URL pública:** https://medclinic-api-latest.onrender.com/api/v1
 (verificação de saúde em [`/api/v1/health`](https://medclinic-api-latest.onrender.com/api/v1/health))
 
+**Documentação interativa (Swagger):** https://medclinic-api-latest.onrender.com/api/docs
+
 **Board do projeto:** <PREENCHER>
 
 ## Escopo da Etapa 2
@@ -33,6 +35,7 @@ para NestJS e implementa o domínio da clínica sobre essa base:
 - NestJS 11 sobre Express 5
 - TypeORM 0.3 e PostgreSQL
 - class-validator e class-transformer na validação de entrada
+- `@nestjs/swagger` na documentação interativa (OpenAPI)
 - JWT (`jsonwebtoken`) e bcrypt (`bcryptjs`)
 - Jest 30 com ts-jest
 - ESLint e Prettier
@@ -155,7 +158,7 @@ qualquer erro -> AppExceptionFilter -> { statusCode, error, message }
 ```
 clinica/
 ├── src/
-│   ├── main.ts            # bootstrap: seed do admin, prefixo /api/v1, pipe e filtro globais
+│   ├── main.ts            # bootstrap: seed do admin, prefixo /api/v1, pipe, filtro e Swagger
 │   ├── config/            # leitura e validação das variáveis de ambiente (env.ts)
 │   ├── modules/           # módulos do Nest, que ligam controllers, services e repositórios
 │   ├── controllers/       # rotas HTTP
@@ -246,6 +249,11 @@ mesmo fora do recorte de cobertura.
 
 Todas as rotas ficam sob `/api/v1`. As rotas autenticadas exigem o header
 `Authorization: Bearer <token>`, obtido em `POST /auth/login`.
+
+Para testar pelo navegador, use a documentação interativa em `/api/docs` (local:
+`http://localhost:3000/api/docs`). Faça o login em `POST /api/v1/auth/login` pelo botão
+**Try it out**, copie o `accessToken` da resposta, clique em **Authorize** e cole o
+token. A partir daí, todas as rotas podem ser executadas pela própria página.
 
 | Método | Rota | Perfis |
 | :---- | :---- | :---- |
