@@ -1,11 +1,11 @@
 import { Patient } from '../entities/Patient';
 
-// Formato da resposta da API; deletedAt nao faz parte do contrato
+// Formato da resposta da API; deletedAt nao faz parte do contrato. Datas em ISO com Z
 export interface PatientResponse {
   id: number;
   name: string;
   cpf: string;
-  createdAt: Date;
+  createdAt: string;
 }
 
 export function toPatientResponse(patient: Patient): PatientResponse {
@@ -13,6 +13,6 @@ export function toPatientResponse(patient: Patient): PatientResponse {
     id: patient.id,
     name: patient.name,
     cpf: patient.cpf,
-    createdAt: patient.createdAt,
+    createdAt: patient.createdAt.toISOString(),
   };
 }
