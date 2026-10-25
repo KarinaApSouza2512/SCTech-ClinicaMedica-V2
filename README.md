@@ -1,337 +1,318 @@
-# SCTech-ClinicaMedica
+# MedClinic API
 
-## Sobre o projeto
+API REST para o gerenciamento de uma clínica médica: usuários e perfis de acesso,
+pacientes, médicos, escala de trabalho, agendamento de consultas com controle de
+concorrência e prontuário com acesso por vínculo de atendimento.
 
-**MedClinic API** é uma API REST para o gerenciamento de uma clínica médica.
+**URL pública:** https://medclinic-api-latest.onrender.com/api/v1
+(verificação de saúde em [`/api/v1/health`](https://medclinic-api-latest.onrender.com/api/v1/health))
 
-Esta etapa do projeto entrega exclusivamente a **base de autenticação e autorização**
-do sistema: cadastro de usuários, login com emissão de token JWT, middleware de
-autenticação e controle de acesso baseado em perfis (RBAC). As funcionalidades de
-domínio da clínica (especialidades, médicos, pacientes, consultas) ficam para uma
-etapa futura, sobre esta mesma base de código.
+**Board do projeto:** <PREENCHER>
 
-## Tecnologias utilizadas
+## Escopo da Etapa 2
 
-- Node.js + TypeScript
-- Express.js
-- TypeORM + PostgreSQL
-- JWT (`jsonwebtoken`) para autenticação
-- bcrypt (`bcryptjs`) para hash de senha
-- class-validator / class-transformer para validação dos DTOs
-- Docker / Docker Compose (para subir o PostgreSQL)
+A Etapa 1 entregou a base de autenticação e autorização. A Etapa 2 migra a aplicação
+para NestJS e implementa o domínio da clínica sobre essa base:
 
-## Arquitetura do projeto
+- perfis `admin`, `secretary` e `doctor`, com administrador inicial criado por seed;
+- CRUD de pacientes com CPF único, busca por nome e remoção lógica;
+- cadastro de médico e do seu usuário de acesso numa única transação;
+- escala de trabalho por turno, com validação de sobreposição;
+- criação de consulta validada contra a escala, com bloqueio pessimista contra
+  agendamento duplicado;
+- ciclo de vida da consulta (agendada, em andamento, concluída, cancelada) com
+  autoridade por perfil;
+- agenda do médico por período e listagens paginadas com filtros;
+- prontuário restrito ao médico que atendeu o paciente, com leitura de auditoria
+  pelo admin;
+- contrato de erros padronizado, cobertura mínima de 80% e CI/CD com deploy no Render.
 
-A aplicação segue uma arquitetura MVC organizada em camadas, dentro de `clinica/src`:
+## Tecnologias
+
+- Node.js 22 e TypeScript (modo `strict`)
+- NestJS 11 sobre Express 5
+- TypeORM 0.3 e PostgreSQL
+- class-validator e class-transformer na validação de entrada
+- JWT (`jsonwebtoken`) e bcrypt (`bcryptjs`)
+- Jest 30 com ts-jest
+- ESLint e Prettier
+- Docker (imagem da API e banco local) e GitHub Actions
+- Render (API e PostgreSQL) e GitHub Container Registry (imagem)
+
+## Execução local
+
+### Pré-requisitos
+
+- Node.js 20 ou superior (a imagem e o CI usam o 22)
+- Docker com Docker Compose, para subir o PostgreSQL local
+
+### Passo a passo
+
+O código da aplicação fica em `clinica/`. Os comandos abaixo partem da raiz do repositório.
+
+1. Crie o arquivo de ambiente a partir do modelo e preencha os valores obrigatórios
+   (`DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `ADMIN_EMAIL` e `ADMIN_PASSWORD`):
+
+   ```bash
+   cp clinica/.env.example clinica/.env
+   ```
+
+2. Suba o PostgreSQL. O compose lê usuário, senha e banco do mesmo `.env` e expõe o
+   banco em `localhost:5434`:
+
+   ```bash
+   docker compose --env-file clinica/.env -f clinica/postgress/docker-compose.yml up -d
+   ```
+
+3. Instale as dependências, aplique as migrations e crie o administrador inicial:
+
+   ```bash
+   cd clinica
+   npm install
+   npm run migration:run
+   npm run seed
+   ```
+
+4. Inicie a API em modo de desenvolvimento (reinicia a cada alteração):
+
+   ```bash
+   npm run dev
+   ```
+
+A API responde em `http://localhost:3000/api/v1`. Ao iniciar, ela também aplica as
+migrations pendentes e executa a seed do administrador. Por isso, rodar os passos 3 e 4
+de novo não duplica nada.
+
+Para executar o build de produção: `npm run build` seguido de `npm start`.
+
+## Variáveis de ambiente
+
+Os valores ficam em `clinica/.env`, que não é versionado. O modelo é
+`clinica/.env.example`. Segredos não têm valor padrão: sem eles a aplicação não sobe.
+
+| Variável | Papel | Padrão |
+| :---- | :---- | :---- |
+| `NODE_ENV` | Ambiente de execução; em `development` o TypeORM registra as queries | `development` |
+| `PORT` | Porta HTTP da API | `3000` |
+| `DATABASE_URL` | Conexão por URL única (Render, Neon). Tem prioridade sobre os campos `DB_*` | vazio |
+| `DB_SSL` | `true` para banco gerenciado, que exige SSL | `false` |
+| `DB_HOST` | Host do PostgreSQL | `localhost` |
+| `DB_PORT` | Porta do PostgreSQL | `5432` (o compose local usa `5434`) |
+| `DB_USER` | Usuário do PostgreSQL | obrigatória sem `DATABASE_URL` |
+| `DB_PASSWORD` | Senha do PostgreSQL | obrigatória sem `DATABASE_URL` |
+| `DB_NAME` | Nome do banco | `sctec` |
+| `JWT_SECRET` | Chave de assinatura do token | obrigatória |
+| `JWT_EXPIRES_IN` | Validade do token | `1d` |
+| `BCRYPT_SALT_ROUNDS` | Custo do hash de senha | `10` |
+| `ADMIN_NAME` | Nome do administrador inicial | `Administrador` |
+| `ADMIN_EMAIL` | E-mail do administrador inicial | sem padrão; sem ele a seed não cria o admin |
+| `ADMIN_PASSWORD` | Senha do administrador inicial | sem padrão; sem ela a seed não cria o admin |
+
+O fuso da clínica (`America/Sao_Paulo`) é uma constante em `src/utils/clinicTime.ts`.
+
+## Comandos
+
+Executados dentro de `clinica/`:
+
+| Comando | O que faz |
+| :---- | :---- |
+| `npm run dev` | Inicia a API com recarga automática |
+| `npm run build` | Compila o TypeScript para `dist/` |
+| `npm start` | Executa a versão compilada |
+| `npm run migration:run` | Aplica as migrations pendentes |
+| `npm run migration:revert` | Desfaz a última migration aplicada |
+| `npm run seed` | Cria o administrador inicial, se ainda não existir |
+| `npm test` | Executa os testes |
+| `npm run test:cov` | Executa os testes com cobertura e aplica o mínimo de 80% |
+| `npm run lint` | Verifica o código com ESLint |
+
+## Arquitetura
+
+### Camadas e fluxo da requisição
 
 ```
-src/
-├── server.ts           # ponto de entrada: inicializa o DataSource e o Express
-├── config/              # leitura das variáveis de ambiente
-├── routes/               # definição dos endpoints e associação aos controllers
-├── middlewares/         # autenticação (JWT), autorização (RBAC), validação de DTO e tratamento de erros
-├── controllers/         # recebem a requisição HTTP e acionam os services
-├── services/            # regras de negócio (cadastro, login, etc.)
-├── repositories/        # acesso a dados via TypeORM
-├── entities/            # entidades do TypeORM (User)
-├── dto/                  # objetos de entrada validados (RegisterDto, LoginDto)
-├── enums/                # perfis de acesso (Role)
-├── database/             # conexão (DataSource) e migrations
-└── utils/                # hash de senha, JWT, tratamento de erros (AppError)
+requisição HTTP
+  -> JwtAuthGuard        valida o Bearer token e coloca o usuário na requisição
+  -> RolesGuard          barra o perfil que nunca pode acessar a rota (@Roles)
+  -> DtoValidationPipe   valida e converte corpo, parâmetros e query pelo DTO
+  -> Controller          chama o service e converte a entidade pelo mapper
+  -> Service             regras de negócio; lança DomainError(código, mensagem)
+  -> Repository (porta)  interface em repositories/ports
+  -> TypeOrm*Repository  implementação com TypeORM
+  -> PostgreSQL
+qualquer erro -> AppExceptionFilter -> { statusCode, error, message }
 ```
 
-## Pré-requisitos
+- **Controllers** não têm regra de negócio e não importam TypeORM.
+- **Services** dependem das portas dos repositórios, injetadas por token, e não
+  conhecem status HTTP. Por isso podem ser testados com dublês, sem banco.
+- **AppExceptionFilter** é o único lugar que traduz código de erro em status HTTP. Ele
+  também converte a violação de unique do Postgres no código do catálogo pelo nome da
+  constraint (`UQ_users_email`, `UQ_patients_cpf`, `UQ_doctors_crm`).
 
-- Node.js instalado
-- Docker e Docker Compose (para subir o PostgreSQL) — alternativamente, uma instância
-  PostgreSQL própria, ajustando as variáveis de ambiente
+### Estrutura de pastas
 
-## Configuração do banco de dados e variáveis de ambiente
-
-O banco de dados sobe via Docker Compose (`clinica/postgress/docker-compose.yml`),
-expondo o PostgreSQL em `localhost:5434`. Usuário, senha e nome do banco são lidos do
-`clinica/.env`, que não é versionado.
-
-As variáveis de ambiente ficam em `clinica/.env` (veja `clinica/.env.example` como
-modelo):
-
-| Variável              | Descrição                              | Padrão                         |
-| ---------------------- | --------------------------------------- | ------------------------------- |
-| `NODE_ENV`              | Ambiente de execução                    | `development`                    |
-| `PORT`                  | Porta em que a API escuta                | `3000`                           |
-| `DB_HOST`               | Host do PostgreSQL                       | `localhost`                      |
-| `DB_PORT`               | Porta do PostgreSQL                      | `5432` (Docker local: `5434`)    |
-| `DB_USER`               | Usuário do PostgreSQL                    | obrigatória, sem padrão          |
-| `DB_PASSWORD`           | Senha do PostgreSQL                      | obrigatória, sem padrão          |
-| `DB_NAME`               | Nome do banco de dados                   | `sctec`                          |
-| `JWT_SECRET`            | Chave secreta para assinatura do JWT     | obrigatória, sem padrão          |
-| `JWT_EXPIRES_IN`        | Tempo de expiração do token               | `1d`                              |
-| `BCRYPT_SALT_ROUNDS`    | Custo do hash bcrypt                      | `10`                              |
-
-Defina `JWT_SECRET` com um valor forte em qualquer ambiente que não seja local.
-
-## Como executar
-
-Na raiz do projeto, execute:
-
-```bash
-docker compose --env-file clinica/.env -f clinica/postgress/docker-compose.yml up -d
-cd clinica
-npm install
-npm run migration:run
-npm run build
-npm start
+```
+clinica/
+├── src/
+│   ├── main.ts            # bootstrap: seed do admin, prefixo /api/v1, pipe e filtro globais
+│   ├── config/            # leitura e validação das variáveis de ambiente (env.ts)
+│   ├── modules/           # módulos do Nest, que ligam controllers, services e repositórios
+│   ├── controllers/       # rotas HTTP
+│   ├── guards/            # autenticação (JWT) e autorização por perfil
+│   ├── decorators/        # @Roles e @CurrentUser
+│   ├── pipes/             # validação dos DTOs no formato de erro do contrato
+│   ├── filters/           # tratamento centralizado de erros
+│   ├── dto/               # entrada validada de cada rota
+│   ├── mappers/           # formato das respostas (a entidade nunca sai direto)
+│   ├── services/          # regras de negócio e regras puras (AppointmentRules)
+│   ├── repositories/
+│   │   ├── ports/         # interfaces usadas pelos services
+│   │   └── typeorm/       # implementações com TypeORM
+│   ├── entities/          # entidades do TypeORM
+│   ├── enums/             # perfis e status da consulta
+│   ├── errors/            # DomainError e catálogo de códigos
+│   ├── database/          # DataSource, migrations e seed
+│   ├── types/             # tipos do usuário autenticado
+│   └── utils/             # hash, JWT, paginação, horas e fuso da clínica
+├── tests/                 # testes unitários (Jest)
+├── postgress/             # docker-compose do banco local
+└── Dockerfile             # imagem de produção
 ```
 
-A migração de usuários **não** roda automaticamente ao iniciar a API — é necessário
-executar `npm run migration:run` (ela cria a tabela `users`) antes de subir a
-aplicação pela primeira vez, ou sempre que houver uma migration nova.
-
-Para desenvolvimento com reload automático, use `npm run dev` no lugar de
-`npm run build` + `npm start` (ainda dentro de `clinica/`).
-
-O servidor será iniciado em `http://localhost:3000`. Para usar outra porta, defina a
-variável `PORT` antes de iniciar:
-
-```bash
-PORT=4000 npm start
-```
-
-## Rotas disponíveis
-
-| Método | Rota              | Autenticação              | Descrição                                  |
-| ------ | ------------------ | -------------------------- | -------------------------------------------- |
-| GET    | `/`                 | -                           | Confirma que a API está disponível.          |
-| GET    | `/health`           | -                           | Retorna o status de saúde da aplicação.      |
-| POST   | `/auth/register`    | -                           | Cria um novo usuário.                        |
-| POST   | `/auth/login`       | -                           | Autentica e retorna um token JWT.            |
-| GET    | `/users/me`         | Bearer token                | Retorna os dados do usuário autenticado.     |
-| GET    | `/admin/ping`       | Bearer token + role `ADMIN` | Rota de teste restrita a administradores.    |
-
-As roles disponíveis são: `ADMIN`, `DOCTOR`, `ATTENDANT` e `PATIENT`.
-
-### POST /auth/register
-
-Corpo da requisição:
-
-```json
-{
-  "name": "Karina Aparecida",
-  "email": "karina@example.com",
-  "password": "senha12345",
-  "role": "PATIENT"
-}
-```
-
-`role` é opcional (assume `ATTENDANT` se omitido). Valores aceitos: `ADMIN`, `DOCTOR`,
-`ATTENDANT`, `PATIENT`.
-
-Resposta `201 Created`:
-
-```json
-{
-  "id": "b1f3...",
-  "name": "Karina Aparecida",
-  "email": "karina@example.com",
-  "role": "PATIENT",
-  "createdAt": "2026-09-11T12:00:00.000Z"
-}
-```
-
-### POST /auth/login
-
-Corpo da requisição:
-
-```json
-{
-  "email": "karina@example.com",
-  "password": "senha12345"
-}
-```
-
-Resposta `200 OK`:
-
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": { "id": "b1f3...", "name": "Karina Aparecida", "email": "karina@example.com", "role": "PATIENT" }
-}
-```
-
-Credenciais inválidas retornam `401 Unauthorized` com uma mensagem genérica (não
-informa se o e-mail existe ou se a senha está incorreta).
-
-### GET /users/me
-
-Requer header `Authorization: Bearer <token>`.
-
-Resposta `200 OK`:
-
-```json
-{
-  "id": "b1f3...",
-  "name": "Karina Aparecida",
-  "email": "karina@example.com",
-  "role": "PATIENT",
-  "createdAt": "2026-09-11T12:00:00.000Z"
-}
-```
-
-### GET /admin/ping
-
-Requer header `Authorization: Bearer <token>` de um usuário com `role = ADMIN`.
-
-Resposta `200 OK`:
-
-```json
-{
-  "message": "pong",
-  "requestedBy": { "id": "b1f3...", "email": "admin@example.com", "role": "ADMIN" },
-  "timestamp": "2026-09-11T12:00:00.000Z"
-}
-```
-
-Com um token de usuário que não seja `ADMIN`, a resposta é `403 Forbidden`.
-
-## Testando pelo Postman
-
-Com o servidor rodando em `http://localhost:3000`, siga os passos abaixo no Postman
-(ou em qualquer cliente HTTP equivalente, como Insomnia).
-
-### 1. Configure a base URL
-
-Crie uma variável de ambiente/coleção chamada `base_url` com o valor
-`http://localhost:3000`, para facilitar a troca de porta/ambiente depois.
-
-### 2. Registrar um usuário
-
-- Método: `POST`
-- URL: `{{base_url}}/auth/register`
-- Aba **Body** → selecione `raw` → tipo `JSON`:
-
-```json
-{
-  "name": "Karina Aparecida",
-  "email": "karina@example.com",
-  "password": "senha12345",
-  "role": "PATIENT"
-}
-```
-
-- Resposta esperada: `201 Created` com os dados do usuário criado.
-
-### 3. Fazer login
-
-- Método: `POST`
-- URL: `{{base_url}}/auth/login`
-- Aba **Body** → `raw` → `JSON`:
-
-```json
-{
-  "email": "karina@example.com",
-  "password": "senha12345"
-}
-```
-
-- Resposta esperada: `200 OK` com um token JWT (veja exemplo acima).
-
-Copie o valor do token retornado — ele será usado nas próximas requisições.
-
-Dica: no Postman, você pode salvar o token automaticamente em uma variável de
-ambiente adicionando este script na aba **Tests** da requisição de login:
-
-```js
-const body = pm.response.json();
-pm.environment.set('token', body.token);
-```
-
-### 4. Acessar uma rota autenticada
-
-- Método: `GET`
-- URL: `{{base_url}}/users/me`
-- Aba **Authorization** → tipo `Bearer Token` → cole o token copiado (ou use
-  `{{token}}` caso tenha salvado a variável no passo anterior).
-  - Alternativa manual: na aba **Headers**, adicione
-    `Authorization: Bearer <token>`.
-
-- Resposta esperada: `200 OK` com os dados do usuário autenticado.
-
-### 5. Acessar uma rota restrita por role (ADMIN)
-
-- Método: `GET`
-- URL: `{{base_url}}/admin/ping`
-- Mesma configuração de autenticação do passo anterior.
-- Só retorna `200 OK` se o usuário do token tiver `role = ADMIN`; caso contrário,
-  retorna `403 Forbidden`. Para testar, registre/atualize um usuário com essa role.
-
-### Erros comuns
-
-- `401 Unauthorized`: token ausente, inválido ou expirado — refaça o login.
-- `403 Forbidden`: token válido, mas o usuário não tem a role exigida pela rota.
-- `400 Bad Request`: corpo da requisição não passou na validação (verifique os
-  campos exigidos em cada DTO, ex.: senha com no mínimo 8 caracteres).
-- `409 Conflict`: tentativa de cadastro com e-mail já existente.
-
-## Testando via curl
-
-Com o servidor rodando em `http://localhost:3000`, os comandos abaixo cobrem o mesmo
-fluxo descrito na seção do Postman.
-
-### 1. Registrar um usuário
-
-```bash
-curl -i -X POST http://localhost:3000/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Karina Aparecida",
-    "email": "karina@sctech.com",
-    "password": "senha12345",
-    "role": "PATIENT"
-  }'
-```
-
-- Resposta esperada: `201 Created` com os dados do usuário criado.
-
-### 2. Fazer login
-
-```bash
-curl -i -X POST http://localhost:3000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "karina@sctech.com",
-    "password": "senha12345"
-  }'
-```
-
-- Resposta esperada: `200 OK` com um token JWT (veja exemplo acima).
-
-Para já guardar o token em uma variável e reutilizar nos próximos comandos (requer
-`jq` instalado):
-
-```bash
-TOKEN=$(curl -s -X POST http://localhost:3000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{ "email": "karina@sctech.com", "password": "senha12345" }' \
-  | jq -r '.token')
-```
-
-### 3. Acessar uma rota autenticada
-
-```bash
-curl -i http://localhost:3000/users/me \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-- Resposta esperada: `200 OK` com os dados do usuário autenticado.
-
-### 4. Acessar uma rota restrita por role (ADMIN)
-
-```bash
-curl -i http://localhost:3000/admin/ping \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-- Só retorna `200 OK` se o usuário do token tiver `role = ADMIN`; caso contrário,
-  retorna `403 Forbidden`. Para testar, registre/atualize um usuário com essa role.
-
-Os mesmos erros descritos em [Erros comuns](#erros-comuns) se aplicam aqui.
+### Decisões de modelagem
+
+- **Ids inteiros (`SERIAL`).** São sequenciais, curtos e fáceis de usar nas rotas e
+  nos testes do contrato. O controle de acesso não depende do id ser difícil de
+  adivinhar, e sim da posse conferida em cada rota.
+- **Perfis como `text[]` em `users`.** Um usuário pode ter mais de um perfil (um
+  médico que também é admin). Uma constraint `CHECK` limita os valores aos três
+  perfis e exige pelo menos um, sem precisar de tabela de junção.
+- **Escala com uma linha por turno (`work_shifts`).** Cada turno tem dia da semana,
+  início, fim e duração da consulta. Isso permite manhã e tarde no mesmo dia com
+  durações diferentes. `CHECK`s no banco garantem dia de 0 a 6, início antes do fim e
+  duração positiva. O `PUT` substitui a escala inteira numa transação.
+- **`endsAt` gravado na consulta (RN15).** O fim é calculado no agendamento a partir
+  da duração do turno e fica salvo. Mudar a escala depois não encurta nem move
+  consultas já marcadas.
+- **Remoção lógica de paciente.** O `DELETE` preenche `deleted_at` (`@DeleteDateColumn`).
+  O paciente some das listagens e consultas, mas o histórico de consultas e o
+  prontuário continuam íntegros. O CPF segue reservado pela constraint unique.
+- **Lock pessimista na linha do médico.** A criação de consulta abre uma transação e
+  faz `SELECT ... FOR UPDATE` na linha do médico antes de verificar conflitos e
+  gravar. Trava-se o médico, e não as consultas, porque `FOR UPDATE` só trava linhas
+  que já existem: numa agenda vazia não haveria o que travar. A linha do paciente
+  também é travada, sempre depois da do médico. Isso impede o mesmo paciente em duas
+  consultas simultâneas, e a ordem fixa evita deadlock.
+- **Fuso via `Intl.DateTimeFormat`.** O horário da escala é hora local da clínica. O
+  instante recebido em ISO 8601 (com fuso obrigatório) é convertido para
+  `America/Sao_Paulo` com `Intl`, sem biblioteca externa e sem fixar `-03:00`. Assim,
+  uma eventual volta do horário de verão é respeitada. As datas são guardadas em
+  `timestamptz` e devolvidas em UTC (`toISOString()`).
+
+### Padrão de nomes (RNF06)
+
+- **PascalCase** para classes e para os arquivos que as contêm (`PatientService.ts`,
+  `CreatePatientDto.ts`).
+- **camelCase** para funções, variáveis e arquivos de funções utilitárias
+  (`clinicTime.ts`, `escapeLike.ts`).
+- **kebab-case** nos segmentos das rotas (`/work-schedule`, `/medical-records`).
+- **snake_case** nas tabelas e colunas do banco (`work_shifts`, `starts_at`).
+- **Sufixos** por papel: `Service`, `Controller`, `Repository`, `Dto`, `Module`,
+  `Mapper`, `Guard`. Portas de repositório começam com `I` (`IPatientRepository`).
+- **Rotas:** no NestJS não há arquivo `xxx.routes.ts`. Cada rota é declarada no seu
+  controller, com `@Controller('patients')` e os decorators `@Get`, `@Post` e demais.
+
+## Testes e cobertura
+
+A cobertura é medida em `src/services/**`, a camada de regras de negócio: os services
+e as regras puras de `AppointmentRules.ts`. O `npm run test:cov` falha abaixo de 80% em
+linhas, branches, funções ou statements, e o CI usa esse mesmo comando.
+
+Ficam fora do cálculo:
+
+- **controllers**, que só repassam para o service e convertem a resposta;
+- **entidades e migrations**, que são declaração de estrutura, sem lógica;
+- **repositórios TypeORM**, cuja correção depende do banco real, o que um teste
+  unitário com dublê não comprova.
+
+Esses pontos foram verificados contra um PostgreSQL de verdade: migrations aplicadas e
+revertidas, conflitos de unique, transações e concorrência de agendamento.
+
+Os testes também cobrem os DTOs (pelo `DtoValidationPipe`) e as funções de hora e fuso,
+mesmo fora do recorte de cobertura.
+
+## Endpoints
+
+Todas as rotas ficam sob `/api/v1`. As rotas autenticadas exigem o header
+`Authorization: Bearer <token>`, obtido em `POST /auth/login`.
+
+| Método | Rota | Perfis |
+| :---- | :---- | :---- |
+| `GET` | `/health` | público |
+| `POST` | `/auth/login` | público |
+| `GET` | `/users/me` | autenticado |
+| `POST` | `/users` | `admin` |
+| `POST` | `/patients` | `admin`, `secretary` |
+| `GET` | `/patients` | autenticado |
+| `GET` | `/patients/{id}` | autenticado |
+| `PATCH` | `/patients/{id}` | `admin`, `secretary` |
+| `DELETE` | `/patients/{id}` | `admin` |
+| `POST` | `/doctors` | `admin` |
+| `GET` | `/doctors` | autenticado |
+| `GET` | `/doctors/{id}` | autenticado |
+| `PUT` | `/doctors/{id}/work-schedule` | `admin` |
+| `GET` | `/doctors/{id}/work-schedule` | autenticado |
+| `GET` | `/doctors/{id}/calendar?from=&to=` | autenticado |
+| `POST` | `/appointments` | `admin`, `secretary` |
+| `GET` | `/appointments` | autenticado; `doctor` sem `admin` só vê os próprios |
+| `GET` | `/appointments/{id}` | autenticado; `doctor` sem `admin` só o próprio |
+| `PATCH` | `/appointments/{id}/status` | conforme a transição |
+| `POST` | `/patients/{id}/medical-records` | `doctor` com vínculo |
+| `GET` | `/patients/{id}/medical-records` | `doctor` com vínculo, `admin` |
+
+Transições de status permitidas:
+
+| De | Para | Quem pode |
+| :---- | :---- | :---- |
+| `scheduled` | `in_progress` | o `doctor` da consulta, `admin` |
+| `scheduled` | `cancelled` | `admin`, `secretary`, o `doctor` da consulta |
+| `in_progress` | `done` | o `doctor` da consulta, `admin` |
+| `in_progress` | `cancelled` | `admin`, o `doctor` da consulta |
+
+Toda listagem é paginada (`page`, padrão 1; `pageSize`, padrão 20 e máximo 100) e
+responde `{ data, meta: { total, page, pageSize, totalPages } }`.
+
+Todo erro responde `{ statusCode, error, message }`, com `error` vindo do catálogo:
+
+| `error` | Status | Quando |
+| :---- | :---- | :---- |
+| `DADOS_INVALIDOS` | 400 | entrada fora do formato ou de uma regra de validação |
+| `NAO_AUTENTICADO` | 401 | token ausente, inválido ou expirado |
+| `CREDENCIAIS_INVALIDAS` | 401 | e-mail ou senha incorretos no login |
+| `ACESSO_NEGADO` | 403 | perfil ou posse sem permissão |
+| `RECURSO_NAO_ENCONTRADO` | 404 | recurso ou rota inexistente |
+| `EMAIL_JA_CADASTRADO` | 409 | e-mail já em uso |
+| `CPF_JA_CADASTRADO` | 409 | CPF já em uso |
+| `CRM_JA_CADASTRADO` | 409 | CRM já em uso |
+| `HORARIO_INDISPONIVEL` | 409 | o médico já tem consulta ativa no período |
+| `PACIENTE_INDISPONIVEL` | 409 | o paciente já tem consulta ativa no período |
+| `HORARIO_FORA_DA_ESCALA` | 422 | o horário não existe na escala do médico |
+| `TRANSICAO_INVALIDA` | 422 | mudança de status não permitida |
+| `ERRO_INTERNO` | 500 | falha inesperada (registrada no log) |
+
+## CI/CD
+
+- **PR Validation** (`.github/workflows/pr-workflow.yml`): em todo pull request para a
+  `main`, o job `build-and-test` instala as dependências com `npm ci` e executa lint,
+  build e `test:cov`. Cobertura abaixo de 80% reprova o job.
+- **Deploy** (`.github/workflows/deploy.yml`): a cada push na `main`, ou seja, a cada
+  merge de PR, a imagem Docker é construída e publicada no GitHub Container Registry
+  (`ghcr.io/<dono>/medclinic-api`, com as tags `latest` e o SHA do commit). Em seguida,
+  o workflow chama o deploy hook do Render, guardado no segredo `RENDER_DEPLOY_HOOK_URL`.
+  As variáveis da aplicação ficam no painel do Render, nunca no repositório.
+- **Proteção da `main`:** a branch não aceita push direto. O merge só acontece por pull
+  request, com o check `build-and-test` aprovado.
+
+Na inicialização em produção, a API aplica as migrations pendentes e cria o
+administrador inicial com `ADMIN_EMAIL` e `ADMIN_PASSWORD`, se ele ainda não existir.
