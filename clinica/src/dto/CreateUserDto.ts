@@ -14,14 +14,14 @@ import { TrimString } from './TrimString';
 
 export class CreateUserDto {
   // O contrato so exige nome presente; espacos nas pontas nao contam
-  @ApiProperty({ example: 'Joana Secretaria' })
+  @ApiProperty({ example: 'Karina Aparecida' })
   @TrimString()
   @IsString()
   @IsNotEmpty()
   @MaxLength(120)
   name!: string;
 
-  @ApiProperty({ example: 'joana@medclinic.com' })
+  @ApiProperty({ example: 'karina@medclinic.com' })
   @IsEmail()
   @MaxLength(160)
   email!: string;

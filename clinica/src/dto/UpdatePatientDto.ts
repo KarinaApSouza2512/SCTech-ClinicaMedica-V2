@@ -4,7 +4,7 @@ import { TrimString } from './TrimString';
 
 // CPF nao e alteravel; se vier no corpo, o whitelist descarta
 export class UpdatePatientDto {
-  @ApiProperty({ example: 'Maria Silva Souza' })
+  @ApiProperty({ example: 'Marcos Marcolino' })
   @TrimString()
   @IsString()
   @IsNotEmpty()

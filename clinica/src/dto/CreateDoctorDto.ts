@@ -4,14 +4,14 @@ import { TrimString } from './TrimString';
 
 // Mesmas regras de nome, e-mail e senha do CreateUserDto
 export class CreateDoctorDto {
-  @ApiProperty({ example: 'Dra. Helena Souza' })
+  @ApiProperty({ example: 'Marcos Marcolino' })
   @TrimString()
   @IsString()
   @IsNotEmpty()
   @MaxLength(120)
   name!: string;
 
-  @ApiProperty({ example: 'helena@medclinic.com' })
+  @ApiProperty({ example: 'marcos@medclinic.com' })
   @IsEmail()
   @MaxLength(160)
   email!: string;
