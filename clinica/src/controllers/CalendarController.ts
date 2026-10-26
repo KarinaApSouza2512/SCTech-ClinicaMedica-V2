@@ -6,7 +6,7 @@ import { JwtAuthGuard } from '../guards/JwtAuthGuard';
 import { CalendarResponse, toCalendarResponse } from '../mappers/AppointmentMapper';
 import { AppointmentService } from '../services/AppointmentService';
 
-@ApiTags('Agenda do medico')
+@ApiTags('Agenda do médico')
 @ApiBearerAuth()
 @Controller('doctors/:doctorId/calendar')
 @UseGuards(JwtAuthGuard)

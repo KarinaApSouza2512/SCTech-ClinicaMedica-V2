@@ -8,7 +8,7 @@ import { JwtAuthGuard } from '../guards/JwtAuthGuard';
 import { RolesGuard } from '../guards/RolesGuard';
 import { PublicUser, UserService } from '../services/UserService';
 
-@ApiTags('Usuarios')
+@ApiTags('Usuários')
 @ApiBearerAuth()
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)

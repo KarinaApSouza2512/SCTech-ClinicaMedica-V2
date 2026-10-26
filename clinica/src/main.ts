@@ -25,7 +25,8 @@ function setupSwagger(app: INestApplication): void {
   const config = new DocumentBuilder()
     .setTitle('MedClinic API')
     .setDescription(
-      'API da clinica medica. Faca o login em POST /api/v1/auth/login e cole o accessToken em Authorize.',
+      'API da clinica medica. Trabalho de conclusão de curso SCTech - Karina Ap. de Souza. ' +
+        'Faca o login em POST /api/v1/auth/login e cole o accessToken em Authorize.',
     )
     .setVersion('2.0')
     .addBearerAuth()

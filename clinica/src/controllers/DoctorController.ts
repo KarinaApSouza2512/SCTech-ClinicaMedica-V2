@@ -12,7 +12,7 @@ import { DoctorService } from '../services/DoctorService';
 import { Paginated } from '../utils/pagination';
 
 // Rotas sem @Roles aceitam qualquer usuario autenticado
-@ApiTags('Medicos')
+@ApiTags('Médicos')
 @ApiBearerAuth()
 @Controller('doctors')
 @UseGuards(JwtAuthGuard, RolesGuard)

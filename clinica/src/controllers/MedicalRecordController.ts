@@ -13,7 +13,7 @@ import { MedicalRecordService } from '../services/MedicalRecordService';
 import { Paginated } from '../utils/pagination';
 
 // @Roles barra quem nunca pode; o vinculo de atendimento e conferido no service
-@ApiTags('Prontuario')
+@ApiTags('Prontuário')
 @ApiBearerAuth()
 @Controller('patients/:patientId/medical-records')
 @UseGuards(JwtAuthGuard, RolesGuard)

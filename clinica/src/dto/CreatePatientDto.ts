@@ -3,7 +3,7 @@ import { IsNotEmpty, IsString, Matches, MaxLength } from 'class-validator';
 import { TrimString } from './TrimString';
 
 export class CreatePatientDto {
-  @ApiProperty({ example: 'Maria Silva' })
+  @ApiProperty({ example: 'Karina Aparecida' })
   @TrimString()
   @IsString()
   @IsNotEmpty()
