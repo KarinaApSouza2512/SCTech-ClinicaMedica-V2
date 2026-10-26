@@ -4,6 +4,8 @@ API REST para o gerenciamento de uma clínica médica: usuários e perfis de ace
 pacientes, médicos, escala de trabalho, agendamento de consultas com controle de
 concorrência e prontuário com acesso por vínculo de atendimento.
 
+Trabalho de conclusão de curso do SCTech, desenvolvido por Karina Ap. de Souza.
+
 **URL pública:** https://medclinic-api-latest.onrender.com/api/v1
 (verificação de saúde em [`/api/v1/health`](https://medclinic-api-latest.onrender.com/api/v1/health))
 
