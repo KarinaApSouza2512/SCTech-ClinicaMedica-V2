@@ -1,10 +1,13 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CalendarQueryDto } from '../dto/CalendarQueryDto';
 import { DoctorIdParamDto } from '../dto/DoctorIdParamDto';
 import { JwtAuthGuard } from '../guards/JwtAuthGuard';
 import { CalendarResponse, toCalendarResponse } from '../mappers/AppointmentMapper';
 import { AppointmentService } from '../services/AppointmentService';
 
+@ApiTags('Agenda do medico')
+@ApiBearerAuth()
 @Controller('doctors/:doctorId/calendar')
 @UseGuards(JwtAuthGuard)
 export class CalendarController {
