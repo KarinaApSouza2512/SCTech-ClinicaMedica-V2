@@ -11,7 +11,7 @@ Trabalho de conclusão de curso do SCTech, desenvolvido por Karina Ap. de Souza.
 
 **Documentação interativa (Swagger):** https://medclinic-api-latest.onrender.com/api/docs
 
-**Board do projeto:** <PREENCHER>
+**Board do projeto:** https://github.com/users/KarinaApSouza2512/projects/1
 
 ## Escopo da Etapa 2
 
